@@ -1,11 +1,11 @@
 """Git commands and queries for Git"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import json
 import os
 import re
 from io import StringIO
 
 from . import core
+from . import textwrap
 from . import utils
 from . import version
 from .git import STDOUT
@@ -13,6 +13,8 @@ from .git import EMPTY_TREE_OID
 from .git import OID_LENGTH
 from .i18n import N_
 from .interaction import Interaction
+from .models import dag
+from .models import prefs
 
 
 def add(context, items, u=False):
@@ -69,11 +71,33 @@ def diff_index_filenames(context, ref):
 
 def diff_filenames(context, *args):
     """Return a list of filenames that have been modified"""
-    git = context.git
-    out = git.diff_tree(
-        name_only=True, no_commit_id=True, r=True, z=True, _readonly=True, *args
-    )[STDOUT]
+    out = diff_tree(context, *args)[STDOUT]
     return _parse_diff_filenames(out)
+
+
+def changed_files(context, oid):
+    """Return the list of filenames that changed in a given commit oid"""
+    status, out, _ = diff_tree(context, oid + '~', oid)
+    if status != 0:
+        # git init
+        status, out, _ = diff_tree(context, EMPTY_TREE_OID, oid)
+    if status == 0:
+        result = _parse_diff_filenames(out)
+    else:
+        result = []
+    return result
+
+
+def diff_tree(context, *args):
+    """Return a list of filenames that have been modified"""
+    git = context.git
+    return git_diff_tree(git, *args)
+
+
+def git_diff_tree(git, *args):
+    return git.diff_tree(
+        name_only=True, no_commit_id=True, r=True, z=True, _readonly=True, *args
+    )
 
 
 def listdir(context, dirname, ref='HEAD'):
@@ -145,12 +169,12 @@ def all_files(context, *args):
         cached=True,
         others=True,
         exclude_standard=True,
-        _readonly=True
+        _readonly=True,
     )[STDOUT]
     return sorted([f for f in ls_files.split('\0') if f])
 
 
-class CurrentBranchCache(object):
+class CurrentBranchCache:
     """Cache for current_branch()"""
 
     key = None
@@ -158,7 +182,7 @@ class CurrentBranchCache(object):
 
 
 def reset():
-    """Reset cached value in this module (eg. the cached current branch)"""
+    """Reset cached value in this module (e.g. the cached current branch)"""
     CurrentBranchCache.key = None
 
 
@@ -330,7 +354,7 @@ def log(git, *args, **kwargs):
         no_ext_diff=True,
         _readonly=True,
         *args,
-        **kwargs
+        **kwargs,
     )[STDOUT]
 
 
@@ -381,8 +405,19 @@ def oid_diff(context, oid, filename=None):
 
 
 def oid_diff_range(context, start, end, filename=None):
-    """Reeturn the diff for a commit range"""
-    args = [start, end]
+    """Return the diff for a commit range"""
+    if end == dag.STAGE:
+        if start == dag.STAGE + '~':
+            args = ['--cached']
+        else:
+            args = ['--cached', start]
+    elif end == dag.WORKTREE:
+        if start == dag.WORKTREE + '~' or start == dag.STAGE + '~':
+            args = []
+        else:
+            args = [start]
+    else:
+        args = [start, end]
     git = context.git
     opts = common_diff_opts(context)
     _add_filename(args, filename)
@@ -405,13 +440,23 @@ def diff_info(context, oid, filename=None):
 def diff_range(context, start, end, filename=None):
     """Return the diff for the specified commit range"""
     git = context.git
-    decoded = log(git, '-1', end, '--', pretty='format:%b').strip()
-    if decoded:
-        decoded += '\n\n'
-    return decoded + oid_diff_range(context, start, end, filename=filename)
+    if end == dag.WORKTREE or end == dag.STAGE:
+        commitmsg = context.model.commitmsg
+        if commitmsg:
+            raw_description = '\n'.join(commitmsg.split('\n')[2:])
+            tabwidth = prefs.tabwidth(context)
+            textwidth = prefs.textwidth(context)
+            description = textwrap.word_wrap(raw_description, tabwidth, textwidth)
+        else:
+            description = ''
+    else:
+        description = log(git, '-1', end, '--', pretty='format:%b').strip()
+    if description:
+        description += '\n\n'
+
+    return description + oid_diff_range(context, start, end, filename=filename)
 
 
-# pylint: disable=too-many-arguments
 def diff_helper(
     context,
     commit=None,
@@ -427,14 +472,14 @@ def diff_helper(
     reverse=False,
     untracked=False,
 ):
-    "Invokes git diff on a filepath."
+    """Invoke git diff on a path"""
     git = context.git
     cfg = context.cfg
     if commit:
         ref, endref = commit + '^', commit
     argv = []
     if ref and endref:
-        argv.append('%s..%s' % (ref, endref))
+        argv.append(f'{ref}..{endref}')
     elif ref:
         argv.extend(utils.shell_split(ref.strip()))
     elif head and amending and cached:
@@ -459,7 +504,7 @@ def diff_helper(
         cached=cached,
         _encoding=encoding,
         *argv,
-        **common_diff_opts(context)
+        **common_diff_opts(context),
     )
 
     success = status == 0
@@ -522,7 +567,7 @@ def extract_diff_header(deleted, with_diff_header, suppress_header, diffoutput):
 
 def format_patchsets(context, to_export, revs, output='patches'):
     """
-    Group contiguous revision selection into patchsets
+    Group contiguous revision selection into patch sets
 
     Exists to handle multi-selection.
     Multiple disparate ranges in the revision selection
@@ -556,7 +601,7 @@ def format_patchsets(context, to_export, revs, output='patches'):
             cur_rev_idx = rev_idx
             patchset_idx += 1
 
-    # Export each patchsets
+    # Export each patch set
     status = 0
     for patchset in patches_to_export:
         stat, out, err = export_patchset(
@@ -613,7 +658,6 @@ def worktree_state(
 
     :rtype: dict, keys are staged, unstaged, untracked, unmerged,
             changed_upstream, and submodule.
-
     """
     git = context.git
     if update_index:
@@ -727,7 +771,7 @@ def diff_upstream(context, head):
 
 
 def list_submodule(context):
-    """Return submodules in the format(state, sha1, path, describe)"""
+    """Return submodules in the format(state, sha_1, path, describe)"""
     git = context.git
     status, data, _ = git.submodule('status')
     ret = []
@@ -794,16 +838,13 @@ def parse_rev_list(raw_revs):
         if match:
             rev_id = match.group(1)
             summary = match.group(2)
-            revs.append(
-                (
-                    rev_id,
-                    summary,
-                )
-            )
+            revs.append((
+                rev_id,
+                summary,
+            ))
     return revs
 
 
-# pylint: disable=redefined-builtin
 def log_helper(context, all=False, extra_args=None):
     """Return parallel arrays containing oids and summaries."""
     revs = []
@@ -824,7 +865,7 @@ def log_helper(context, all=False, extra_args=None):
 def rev_list_range(context, start, end):
     """Return (oid, summary) pairs between start and end."""
     git = context.git
-    revrange = '%s..%s' % (start, end)
+    revrange = f'{start}..{end}'
     out = git.rev_list(revrange, pretty='oneline', _readonly=True)[STDOUT]
     return parse_rev_list(out)
 
@@ -846,6 +887,18 @@ def merge_message_path(context):
         if core.exists(path):
             return path
     return None
+
+
+def read_merge_commit_message(context, path):
+    """Read a merge commit message from disk while stripping commentary"""
+    content = core.read(path)
+    cleanup_mode = prefs.commit_cleanup(context)
+    if cleanup_mode in ('verbatim', 'scissors', 'whitespace'):
+        return content
+    comment_char = prefs.comment_char(context)
+    return '\n'.join(
+        line for line in content.splitlines() if not line.startswith(comment_char)
+    )
 
 
 def prepare_commit_message_hook(context):
@@ -876,7 +929,7 @@ def cherry_pick(context, revs):
                 'Hint: The "Actions > Abort Cherry-Pick" menu action can be used to '
                 'cancel the current cherry-pick.'
             )
-            output = '# git cherry-pick %s\n# %s\n\n%s' % (rev, details, out)
+            output = f'# git cherry-pick {rev}\n# {details}\n\n{out}'
             return (status, output, err)
         outs.append(out)
         errs.append(err)
@@ -964,7 +1017,7 @@ def cat_file_blob(context, filename, oid):
 
 
 def cat_file_to_path(context, filename, oid):
-    """Extract a file from an commit ref and a write it to the specified filename"""
+    """Extract a file from a commit ref and a write it to the specified filename"""
     return cat_file(context, filename, oid, path=filename, filters=True)
 
 
@@ -1026,7 +1079,7 @@ def annex_path(context, head, filename):
 
 
 def is_binary(context, filename):
-    """A heustic to determine whether `filename` contains (non-text) binary content"""
+    """A heuristic to determine whether `filename` contains (non-text) binary content"""
     cfg_is_binary = context.cfg.is_binary(filename)
     if cfg_is_binary is not None:
         return cfg_is_binary
@@ -1034,7 +1087,7 @@ def is_binary(context, filename):
     size = 8000
     try:
         result = core.read(filename, size=size, encoding='bytes')
-    except (IOError, OSError):
+    except OSError:
         result = b''
 
     return b'\0' in result

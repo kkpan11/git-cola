@@ -1,5 +1,4 @@
 """Provides widgets related to branches"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 from functools import partial
 
 from qtpy import QtWidgets
@@ -10,6 +9,8 @@ from ..compat import uchr
 from ..git import STDOUT
 from ..i18n import N_
 from ..interaction import Interaction
+from ..models import main as main_mod
+from ..widgets import completion
 from ..widgets import defs
 from ..widgets import standard
 from ..qtutils import get
@@ -18,7 +19,8 @@ from .. import gitcmds
 from .. import hotkeys
 from .. import icons
 from .. import qtutils
-from .text import LineEdit
+from . import log
+from . import text
 
 
 def defer_func(parent, title, func, *args, **kwargs):
@@ -56,6 +58,8 @@ class AsyncGitActionTask(qtutils.Task):
 
 
 class BranchesWidget(QtWidgets.QFrame):
+    """A widget for displaying and performing operations on branches"""
+
     def __init__(self, context, parent):
         QtWidgets.QFrame.__init__(self, parent)
         self.model = model = context.model
@@ -115,8 +119,9 @@ class BranchesWidget(QtWidgets.QFrame):
         self.sort_order_button.setIcon(icon)
 
 
-# pylint: disable=too-many-ancestors
 class BranchesTreeWidget(standard.TreeWidget):
+    """A tree widget for displaying branches"""
+
     updated = Signal()
 
     def __init__(self, context, parent=None):
@@ -143,7 +148,6 @@ class BranchesTreeWidget(standard.TreeWidget):
         context.model.updated.connect(self.updated)
 
         # Expand items when they are clicked
-        # pylint: disable=no-member
         self.clicked.connect(self._toggle_expanded)
 
         # Checkout branch when double clicked
@@ -194,7 +198,7 @@ class BranchesTreeWidget(standard.TreeWidget):
             self._visible = True
             if self._needs_refresh:
                 self.refresh()
-        return super(BranchesTreeWidget, self).showEvent(event)
+        return super().showEvent(event)
 
     def _toggle_expanded(self, index):
         """Toggle expanded/collapsed state when items are clicked"""
@@ -216,6 +220,13 @@ class BranchesTreeWidget(standard.TreeWidget):
         full_name = selected.refname
         menu = qtutils.create_menu(N_('Actions'), self)
 
+        visualize_action = qtutils.add_action(
+            menu, N_('Visualize'), self.visualize_branch_action
+        )
+        visualize_action.setIcon(icons.visualize())
+        menu.addAction(visualize_action)
+        menu.addSeparator()
+
         # all branches except current the current branch
         if full_name != self.current_branch:
             menu.addAction(
@@ -231,7 +242,6 @@ class BranchesTreeWidget(standard.TreeWidget):
                 menu, N_('Merge into current branch'), self.merge_action
             )
             merge_menu_action.setIcon(icons.merge())
-
             menu.addAction(merge_menu_action)
 
         # local and remote branch
@@ -276,88 +286,27 @@ class BranchesTreeWidget(standard.TreeWidget):
                 menu.addSeparator()
                 menu.addAction(delete_menu_action)
 
-        # manage upstreams for local branches
+        # manage upstream branches for local branches
         if root.name == N_('Local'):
-            upstream_menu = menu.addMenu(N_('Set Upstream Branch'))
-            upstream_menu.setIcon(icons.branch())
-            self.build_upstream_menu(upstream_menu)
+            selected_branch = self.selected_refname()
+            if selected_branch:
+                upstream_branch = gitcmds.tracked_branch(
+                    context, branch=selected_branch
+                )
+            else:
+                upstream_branch = ''
+            set_upstream_branch_action = defer_func(
+                menu,
+                N_('Set Upstream Branch'),
+                _set_upstream_branch,
+                self.context,
+                selected_branch,
+                upstream_branch,
+                self,
+            )
+            menu.addAction(set_upstream_branch_action)
 
         menu.exec_(self.mapToGlobal(event.pos()))
-
-    def build_upstream_menu(self, menu):
-        """Build the "Set Upstream Branch" sub-menu"""
-        context = self.context
-        model = context.model
-        selected_branch = self.selected_refname()
-        remote = None
-        upstream = None
-
-        branches = []
-        other_branches = []
-
-        if selected_branch:
-            remote = gitcmds.upstream_remote(context, selected_branch)
-            upstream = gitcmds.tracked_branch(context, branch=selected_branch)
-
-        if not remote and 'origin' in model.remotes:
-            remote = 'origin'
-
-        if remote:
-            prefix = remote + '/'
-            for branch in model.remote_branches:
-                if branch.startswith(prefix):
-                    branches.append(branch)
-                else:
-                    other_branches.append(branch)
-        else:
-            # This can be a pretty big list, let's try to split it apart
-            branch_remote = ''
-            target = branches
-            for branch in model.remote_branches:
-                new_branch_remote, _ = gitcmds.parse_remote_branch(branch)
-                if branch_remote and branch_remote != new_branch_remote:
-                    target = other_branches
-                branch_remote = new_branch_remote
-                target.append(branch)
-
-            limit = 16
-            if not other_branches and len(branches) > limit:
-                branches, other_branches = (branches[:limit], branches[limit:])
-
-        # Add an action for each remote branch
-        current_remote = remote
-
-        for branch in branches:
-            current_remote = add_branch_to_menu(
-                menu,
-                selected_branch,
-                branch,
-                current_remote,
-                upstream,
-                self.set_upstream,
-            )
-
-        # This list could be longer so we tuck it away in a sub-menu.
-        # Selecting a branch from the non-default remote is less common.
-        if other_branches:
-            menu.addSeparator()
-            sub_menu = menu.addMenu(N_('Other branches'))
-            for branch in other_branches:
-                current_remote = add_branch_to_menu(
-                    sub_menu,
-                    selected_branch,
-                    branch,
-                    current_remote,
-                    upstream,
-                    self.set_upstream,
-                )
-
-    def set_upstream(self, branch, remote_branch):
-        """Configure the upstream for a branch"""
-        context = self.context
-        remote, r_branch = gitcmds.parse_remote_branch(remote_branch)
-        if remote and r_branch:
-            cmds.do(cmds.SetUpstreamBranch, context, branch, remote, r_branch)
 
     def _save_tree_state(self):
         """Save the tree state into a dictionary"""
@@ -404,41 +353,69 @@ class BranchesTreeWidget(standard.TreeWidget):
         if current_branch and tracked_branch and item is not None:
             status_str = ''
             if ahead > 0:
-                status_str += '%s%s' % (uchr(0x2191), ahead)
+                status_str += f'{uchr(0x2191)}{ahead}'
 
             if behind > 0:
-                status_str += '  %s%s' % (uchr(0x2193), behind)
+                status_str += f'  {uchr(0x2193)}{behind}'
 
             if status_str:
-                item.setText(0, '%s\t%s' % (item.text(0), status_str))
+                item.setText(0, f'{item.text(0)}\t{status_str}')
 
-    def git_action_async(self, action, args, kwarg=None, update_refs=False):
+    def git_action_async(
+        self, action, args, kwarg=None, update_refs=False, remote_messages=False
+    ):
+        """Execute a git action in a background task"""
         if kwarg is None:
             kwarg = {}
         task = AsyncGitActionTask(self.git_helper, action, args, kwarg, update_refs)
         progress = standard.progress(
             N_('Executing action %s') % action, N_('Updating'), self
         )
-        self.runtask.start(task, progress=progress, finish=self.git_action_completed)
+        if remote_messages:
+            result_handler = log.show_remote_messages(self, self.context)
+        else:
+            result_handler = None
+
+        self.runtask.start(
+            task,
+            progress=progress,
+            finish=self.git_action_completed,
+            result=result_handler,
+        )
 
     def git_action_completed(self, task):
+        """Update the with the results of an async git action"""
         status, out, err = task.result
         self.git_helper.show_result(task.action, status, out, err)
         if task.update_refs:
             self.context.model.update_refs()
 
     def push_action(self):
+        """Push the selected branch to its upstream remote"""
         context = self.context
         branch = self.selected_refname()
         remote_branch = gitcmds.tracked_branch(context, branch)
+        context.settings.load()
+        push_settings = context.settings.get('push')
+        remote_messages = push_settings.get('remote_messages', False)
         if remote_branch:
             remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
+            kwarg = {}
+            main_mod.autodetect_proxy(context, kwarg)
+            main_mod.no_color(kwarg)
             if remote and branch_name:
                 # we assume that user wants to "Push" the selected local
                 # branch to a remote with same name
-                self.git_action_async('push', [remote, branch_name], update_refs=True)
+                self.git_action_async(
+                    'push',
+                    [remote, branch_name],
+                    update_refs=True,
+                    remote_messages=remote_messages,
+                    kwarg=kwarg,
+                )
 
     def rename_action(self):
+        """Rename the selected branch"""
         branch = self.selected_refname()
         new_branch, ok = qtutils.prompt(
             N_('Enter New Branch Name'), title=N_('Rename branch'), text=branch
@@ -447,17 +424,31 @@ class BranchesTreeWidget(standard.TreeWidget):
             self.git_action_async('rename', [branch, new_branch], update_refs=True)
 
     def pull_action(self):
+        """Pull the selected branch into the current branch"""
         context = self.context
         branch = self.selected_refname()
         if not branch:
             return
         remote_branch = gitcmds.tracked_branch(context, branch)
+        context.settings.load()
+        pull_settings = context.settings.get('pull')
+        remote_messages = pull_settings.get('remote_messages', False)
         if remote_branch:
             remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
             if remote and branch_name:
-                self.git_action_async('pull', [remote, branch_name], update_refs=True)
+                kwarg = {}
+                main_mod.autodetect_proxy(context, kwarg)
+                main_mod.no_color(kwarg)
+                self.git_action_async(
+                    'pull',
+                    [remote, branch_name],
+                    update_refs=True,
+                    remote_messages=remote_messages,
+                    kwarg=kwarg,
+                )
 
     def delete_action(self):
+        """Delete the selected branch"""
         branch = self.selected_refname()
         if not branch or branch == self.current_branch:
             return
@@ -477,22 +468,31 @@ class BranchesTreeWidget(standard.TreeWidget):
             cmds.do(cmds.DeleteBranch, self.context, branch)
 
     def merge_action(self):
+        """Merge the selected branch into the current branch"""
         branch = self.selected_refname()
         if branch and branch != self.current_branch:
             self.git_action_async('merge', [branch])
 
     def checkout_action(self):
+        """Checkout the selected branch"""
         branch = self.selected_refname()
         if branch and branch != self.current_branch:
             self.git_action_async('checkout', [branch], update_refs=True)
 
     def checkout_new_branch_action(self):
+        """Checkout a new branch"""
         branch = self.selected_refname()
         if branch and branch != self.current_branch:
             _, new_branch = gitcmds.parse_remote_branch(branch)
             self.git_action_async(
                 'checkout', ['-b', new_branch, branch], update_refs=True
             )
+
+    def visualize_branch_action(self):
+        """Visualize the selected branch"""
+        branch = self.selected_refname()
+        if branch:
+            cmds.do(cmds.VisualizeRevision, self.context, branch)
 
     def selected_refname(self):
         return getattr(self.selected_item(), 'refname', None)
@@ -502,7 +502,7 @@ class BranchDetailsTask(qtutils.Task):
     """Lookup branch details in a background task"""
 
     def __init__(self, context, current_branch, git_helper):
-        super(BranchDetailsTask, self).__init__()
+        super().__init__()
         self.context = context
         self.current_branch = current_branch
         self.git_helper = git_helper
@@ -541,7 +541,7 @@ class BranchTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         self.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
 
-class TreeEntry(object):
+class TreeEntry:
     """Tree representation for the branches widget
 
     The branch widget UI displays the basename.  For intermediate names, e.g.
@@ -587,7 +587,7 @@ def create_tree_entries(names):
 
     """
     # Phase 1: build a nested dictionary representing the intermediate
-    # names in the branches.  e.g. {'xxx': {'abc': {}, 'def': {}}}
+    # names in the branches, e.g. {'xxx': {'abc': {}, 'def': {}}}
     tree_names = create_name_dict(names)
 
     # Loop over the names again, this time we'll create tree entries
@@ -626,7 +626,7 @@ def create_tree_entries(names):
 
 def create_name_dict(names):
     # Phase 1: build a nested dictionary representing the intermediate
-    # names in the branches.  e.g. {'xxx': {'abc': {}, 'def': {}}}
+    # names in the branches, e.g. {'xxx': {'abc': {}, 'def': {}}}
     tree_names = {}
     for item in names:
         part_names = tree_names
@@ -698,7 +698,7 @@ def get_toplevel_item(item):
     return parents[-1]
 
 
-class BranchesTreeHelper(object):
+class BranchesTreeHelper:
     """Save and restore the tree state"""
 
     def __init__(self, tree):
@@ -746,7 +746,7 @@ class BranchesTreeHelper(object):
         return result
 
 
-class GitHelper(object):
+class GitHelper:
     def __init__(self, context):
         self.context = context
         self.git = context.git
@@ -754,11 +754,11 @@ class GitHelper(object):
     def log(self, origin):
         return self.git.log(origin, abbrev=7, pretty='format:%h', _readonly=True)
 
-    def push(self, remote, branch):
-        return self.git.push(remote, branch, verbose=True)
+    def push(self, remote, branch, **kwarg):
+        return self.git.push(remote, branch, verbose=True, **kwarg)
 
-    def pull(self, remote, branch):
-        return self.git.pull(remote, branch, no_ff=True, verbose=True)
+    def pull(self, remote, branch, **kwarg):
+        return self.git.pull(remote, branch, no_ff=True, verbose=True, **kwarg)
 
     def merge(self, branch):
         return self.git.merge(branch, no_commit=True)
@@ -782,7 +782,7 @@ class BranchesFilterWidget(QtWidgets.QWidget):
         self.tree = tree
 
         hint = N_('Filter branches...')
-        self.text = LineEdit(parent=self, clear_button=True)
+        self.text = text.LineEdit(parent=self, clear_button=True)
         self.text.setToolTip(hint)
         self.setFocusProxy(self.text)
         self._filter = None
@@ -790,26 +790,194 @@ class BranchesFilterWidget(QtWidgets.QWidget):
         self.main_layout = qtutils.hbox(defs.no_margin, defs.spacing, self.text)
         self.setLayout(self.main_layout)
 
-        text = self.text
-        # pylint: disable=no-member
-        text.textChanged.connect(self.apply_filter)
+        self.text.textChanged.connect(self.apply_filter)
         self.tree.updated.connect(self.apply_filter, type=Qt.QueuedConnection)
 
     def apply_filter(self):
-        text = get(self.text)
-        if text == self._filter:
+        value = get(self.text)
+        if value == self._filter:
             return
         self._apply_bold(self._filter, False)
-        self._filter = text
-        if text:
-            self._apply_bold(text, True)
+        self._filter = value
+        if value:
+            self._apply_bold(value, True)
 
-    def _apply_bold(self, text, value):
+    def _apply_bold(self, value, is_bold):
         match = Qt.MatchContains | Qt.MatchRecursive
-        children = self.tree.findItems(text, match)
+        children = self.tree.findItems(value, match)
 
         for child in children:
             if child.childCount() == 0:
                 font = child.font(0)
-                font.setBold(value)
+                font.setBold(is_bold)
                 child.setFont(0, font)
+
+
+def _set_upstream_branch(context, branch, upstream_branch, parent):
+    """Select a new upstream branch"""
+    dialog = SelectRemoteBranch(
+        context, upstream_branch, N_('Set Upstream Branch'), parent
+    )
+    if dialog.exec_() != QtWidgets.QDialog.Accepted:
+        return
+    new_upstream_branch = dialog.value()
+    if new_upstream_branch == upstream_branch:
+        return
+    remote, remote_branch = gitcmds.parse_remote_branch(new_upstream_branch)
+    if branch and remote and remote_branch:
+        cmds.do(cmds.SetUpstreamBranch, context, branch, remote, remote_branch)
+
+
+class SelectRemoteBranch(standard.Dialog):
+    """Display a dialog for choosing a remote branch"""
+
+    def __init__(self, context, upstream_branch, title, parent):
+        super().__init__(parent)
+        self._completion_was_active = False
+        self.remote_branch = completion.GitRemoteBranchLineEdit(
+            context, hint=N_('Remote Branch')
+        )
+        if upstream_branch:
+            self.remote_branch.set_value(upstream_branch)
+            _select_text_after_slash(self.remote_branch)
+
+        self._branches_to_items = branches_to_items = {}
+        self.remote_branches = standard.TreeWidget()
+        self.remote_branches.setSelectionMode(
+            QtWidgets.QAbstractItemView.SingleSelection
+        )
+        self.remote_branches.setHeaderHidden(True)
+        self.remote_branches.setAlternatingRowColors(True)
+        items = []
+        selected_item = None
+        for branch in context.model.remote_branches:
+            item = QtWidgets.QTreeWidgetItem()
+            item.setText(0, branch)
+            item.setData(0, Qt.UserRole, branch)
+            if branch == upstream_branch:
+                selected_item = item
+            items.append(item)
+            branches_to_items[branch] = item
+
+        self.remote_branches.addTopLevelItems(items)
+        if selected_item:
+            self.remote_branches.scrollToItem(selected_item)
+            self.remote_branches.setCurrentItem(selected_item)
+            selected_item.setSelected(True)
+
+        self.close_button = qtutils.close_button()
+        self.ok_button = qtutils.ok_button(title)
+
+        button_layout = qtutils.hbox(
+            defs.no_margin,
+            defs.button_spacing,
+            self.close_button,
+            qtutils.STRETCH,
+            self.ok_button,
+        )
+        layout = qtutils.vbox(
+            defs.margin,
+            defs.spacing,
+            self.remote_branch,
+            self.remote_branches,
+            button_layout,
+        )
+        self.close_action = qtutils.add_close_action(self)
+        qtutils.connect_button(self.close_button, self.close_action.trigger)
+        self.remote_branch.textChanged.connect(self._remote_branch_changed)
+        # The "pre" callback uses a direct connection so that it can observe
+        # state before the completion popup has been closed. The "post" callback uses a
+        # queued connection so that it can see the updated value after completions have
+        # been accepted and applied.
+        self.remote_branch.returnPressed.connect(self._remote_branch_chosen_pre)
+        self.remote_branch.returnPressed.connect(
+            self._remote_branch_chosen_post, type=Qt.QueuedConnection
+        )
+
+        self.setLayout(layout)
+        self.setWindowTitle(title)
+        self.setWindowModality(Qt.WindowModal)
+        self.setMinimumWidth(512)
+
+        self.remote_branches.itemSelectionChanged.connect(self._remote_branch_selected)
+        self.remote_branches.itemDoubleClicked.connect(
+            self._remote_branch_double_clicked
+        )
+        self._update_actions()
+
+    def value(self):
+        """Get the remote branch selected by the user"""
+        return self.remote_branch.value()
+
+    def _remote_branch_selected(self):
+        """Update the Remote Branch text when an item is selected"""
+        items = self.remote_branches.selectedItems()
+        if not items:
+            return
+        item = items[0]
+        self._update_remote_branch_from_item(item)
+
+    def _update_remote_branch_from_item(self, item):
+        """Update the remote branch text from a tree widget item"""
+        branch = item.data(0, Qt.UserRole)
+        with qtutils.BlockSignals(self.remote_branch):
+            self.remote_branch.set_value(branch)
+            self._update_actions()
+        popup = self.remote_branch.popup()
+        if popup:
+            popup.close()
+
+    def _remote_branch_double_clicked(self, item, column):
+        """Accept the dialog when an item is double-clicked"""
+        self._update_remote_branch_from_item(item)
+        if self.value():
+            self.accept()
+
+    def _remote_branch_changed(self, text):
+        """Select the branch in the tree widget when its name is entered"""
+        self._update_actions()
+        try:
+            item = self._branches_to_items[text]
+        except KeyError:
+            return
+        self.remote_branches.scrollToItem(item)
+        self.remote_branches.setCurrentItem(item)
+        item.setSelected(True)
+
+    def _remote_branch_chosen_pre(self):
+        """Record the current remote branch text"""
+        self._completion_was_active = self.remote_branch.popup().isVisible()
+
+    def _remote_branch_chosen_post(self):
+        """Accept the dialog now that the remote branch has been chosen"""
+        # Do not accept the dialog when Return is used to select a completion value.
+        # We detect this in the "pre" callback, which runs before the text has been
+        # updated and before the completion popup is closed.
+        if self._completion_was_active:
+            return
+        self.accept()
+
+    def _update_actions(self):
+        """Enable actions as inputs change"""
+        self.ok_button.setEnabled(self.value() in self._branches_to_items)
+
+
+def _select_text_after_slash(line_edit):
+    """Select "xxx" when the widget contains the "origin/xxx" remote branch name"""
+    value = line_edit.value()
+    try:
+        index = value.index('/')
+    except ValueError:
+        line_edit.selectAll()
+        return
+    start_of_remainder = index + 1
+    if start_of_remainder >= len(value):
+        line_edit.selectAll()
+        return
+    remainder_len = len(value) - start_of_remainder
+    if remainder_len <= 0:
+        line_edit.selectAll()
+        return
+    end_position = len(value)
+    line_edit.setCursorPosition(end_position)
+    line_edit.cursorBackward(True, remainder_len)

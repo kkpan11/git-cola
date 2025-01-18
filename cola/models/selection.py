@@ -1,5 +1,4 @@
 """Provides a selection model to handle selection."""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import collections
 
 from qtpy import QtCore
@@ -56,19 +55,21 @@ class SelectionModel(QtCore.QObject):
     unstaged = property(lambda self: self.unmerged + self.modified + self.untracked)
 
     def __init__(self):
-        super(SelectionModel, self).__init__()
+        super().__init__()
         self.staged = []
         self.unmerged = []
         self.modified = []
         self.untracked = []
         self.line_number = None
 
-    def reset(self):
+    def reset(self, emit=False):
         self.staged = []
         self.unmerged = []
         self.modified = []
         self.untracked = []
         self.line_number = None
+        if emit:
+            self.selection_changed.emit()
 
     def is_empty(self):
         return not (
@@ -110,6 +111,7 @@ class SelectionModel(QtCore.QObject):
         return State(staged, unmerged, modified, untracked)
 
     def filename(self):
+        """Return the currently selected filename"""
         paths = [path for path in self.single_selection() if path is not None]
         if paths:
             filename = paths[0]

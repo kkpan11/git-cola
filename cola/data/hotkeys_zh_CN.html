@@ -39,7 +39,7 @@ span.title {
 </head>
 
 <body>
-<span class="title">鍵盤快捷鍵</span>
+<span class="title">键盘快捷键</span>
 <hr />
 
 <!-- Preparing Commits -->
@@ -47,12 +47,12 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">提交版本</td>
+    <td class="title">提交</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Return</td>
     <td>:</td>
-    <td>提交版本提交準備區域中的變更</td>
+    <td>提交已缓存变更</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + Return</td>
@@ -62,7 +62,7 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + S</td>
     <td>:</td>
-    <td>將被選取的項目移入版本提交準備區域</td>
+    <td>缓存所选项目</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + S</td>
@@ -73,17 +73,17 @@ span.title {
 <tr>
     <td class="shortcut">Alt + A</td>
     <td>:</td>
-    <td>將已變更的項目移入版本提交準備區域</td>
+    <td>缓存已更改项目</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + U</td>
     <td>:</td>
-    <td>將尚未追蹤其版本的項目移動到版本提交準備區域</td>
+    <td>缓存未追踪项目</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + U</td>
+    <td class="shortcut">Ctrl + U / Alt + Shift + R</td>
     <td>:</td>
-    <td>還原尚未移入版本提交準備區域的內容變動</td>
+    <td>还原缓存改动</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + U</td>
@@ -96,22 +96,24 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + Z</td>
     <td>:</td>
-    <td>撤銷尚未建立版本提交的內容變動</td>
+    <td>撤销未缓存变更</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + M</td>
     <td>:</td>
-    <td>合併分支</td>
+    <!-- TODO -->
+    <td>Merge branches</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + M</td>
+    <td class="shortcut">Alt + M</td>
     <td>:</td>
-    <td>修正前一次的版本提交</td>
+    <td>修正前一次提交</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + C</td>
     <td>:</td>
-    <td>挑取(cherry pick)</td>
+    <!-- TODO -->
+    <td>Cherry pick</td>
 </tr>
 </table>
 
@@ -125,7 +127,7 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + B</td>
     <td>:</td>
-    <td>建立一個新的分支</td>
+    <td>建立新分支</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + B</td>
@@ -135,27 +137,27 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + T</td>
     <td>:</td>
-    <td>尋找檔案</td>
+    <td>Find files</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + G</td>
     <td>:</td>
-    <td>搜尋</td>
+    <td>搜索</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + D</td>
     <td>:</td>
-    <td>顯示內容差異</td>
+    <td>显示内容差异</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + Shift + E</td>
     <td>:</td>
-    <td>匯出修正</td>
+    <td>导出差异</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + Shift + S</td>
     <td>:</td>
-    <td>珍藏</td>
+    <td>缓存</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Enter</td>
@@ -175,12 +177,12 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + Backspace</td>
     <td>:</td>
-    <td>刪除未納入版本追蹤的檔案</td>
+    <td>Delete untracked files</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + Shift + F</td>
+    <td class="shortcut">Alt + Shift + F</td>
     <td>:</td>
-    <td>開啟／關閉路徑過濾器</td>
+    <td>Toggle paths filter</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + R</td>
@@ -190,7 +192,7 @@ span.title {
 <tr>
     <td class="shortcut">?</td>
     <td>:</td>
-    <td>顯示鍵盤快捷鍵列表</td>
+    <td>显示键盘快捷键列表</td>
 </tr>
 </table>
 
@@ -199,43 +201,47 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">編輯</td>
+    <td class="title">编辑</td>
 </tr>
 <tr>
     <td class="shortcut">Enter / Ctrl + E</td>
     <td>:</td>
-    <td>啟動文字編輯器</td>
+    <td>启动文本编辑器</td>
 </tr>
 <tr>
     <td class="shortcut">空白鍵</td>
     <td>:</td>
-    <td>以系統預設的軟體開啟</td>
+    <td>用默认程序打开</td>
 </tr>
 <tr>
     <td class="shortcut">Shift + 空白鍵</td>
     <td>:</td>
-    <td>開啟上一層目錄</td>
+    <td>打开上级目录</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Alt + C</td>
     <td>:</td>
-    <td>複製修訂版的SHA-1雜湊值</td>
+    <td>Copy Commit ID</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + E</td>
     <td>:</td>
-    <td>檢視／編輯最近修改過的檔案</td>
+    <td>查看 / 编辑最近修改的文件</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + #</td>
     <td>:</td>
-    <td>將焦點移至指定工具</td>
+    <td>聚焦于工具</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + #</td>
     <td>:</td>
-    <td>顯示或隱藏指定工具<br>
-        對提交版本工具來說 # 為 1、對版控庫狀態工具來說 # 為 2、對內容差異工具來說 # 為 3，依此類推</td>
+    <td>显示/隐藏工具</td>
+</tr>
+<tr>
+    <td class="shortcut">Ctrl + Space</td>
+    <td>:</td>
+    <td>Display autocomplete options</td>
 </tr>
 </table>
 
@@ -244,13 +250,12 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">內容差異檢視器</td>
+    <td class="title">差异查看器</td>
 </tr>
 <tr>
     <td class="shortcut">S</td>
     <td>:</td>
-    <td>將選取的行移入版本提交準備區域，或是當沒有選取任何行時跟
-        <strong><em>H</em></strong> 效果相同
+    <td>缓存所选项目，未选择项目时与<strong><em>H</em></strong>作用相同
     </td>
 </tr>
 <tr>
@@ -262,7 +267,7 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + D</td>
     <td>:</td>
-    <td>使用「git difftool」命令檢視內容差異</td>
+    <td>使用「git difftool」命令查看内容差异</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + F</td>
@@ -287,7 +292,39 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + Shift + D</td>
     <td>:</td>
-    <td>使用「git difftool --dir-diff」命令檢視目錄內容差異</td>
+    <td>View directory diff using `git difftool --dir-diff`</td>
+</tr>
+<!-- TODO -->
+<tr>
+    <td class="shortcut">Shift</td>
+    <td>:</td>
+    <td>Hold Shift to select text when moving the cursor with H, J, K, L
+        and Arrow keys</td>
+</tr>
+<tr>
+    <td class="shortcut">Space / Shift + Space</td>
+    <td>:</td>
+    <td>Page Down / Page Up</td>
+</tr>
+<tr>
+    <td class="shortcut">0 (Zero)</td>
+    <td>:</td>
+    <td>Move cursor to the start of the line</td>
+</tr>
+<tr>
+    <td class="shortcut">$ (Shift + 4)</td>
+    <td>:</td>
+    <td>Move cursor to the end of the line</td>
+</tr>
+<tr>
+    <td class="shortcut">G G</td>
+    <td>:</td>
+    <td>Move cursor to the start of the diff</td>
+</tr>
+<tr>
+    <td class="shortcut">Shift + G</td>
+    <td>:</td>
+    <td>Move cursor to the end of the diff</td>
 </tr>
 </table>
 
@@ -296,17 +333,17 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">瀏覽器工具內可進行的操作</td>
+    <td class="title">「浏览器」窗口操作</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + H</td>
     <td>:</td>
-    <td>檢視變更紀錄</td>
+    <td>查看变更历史</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + D</td>
     <td>:</td>
-    <td>與過去版本比較內容差異</td>
+    <td>与之前版本比较差异</td>
 </tr>
 </table>
 
@@ -315,44 +352,44 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">導覽按鍵</td>
+    <td class="title">导航键</td>
 </tr>
 <tr>
     <td class="shortcut">H</td>
     <td>:</td>
-    <td>向左移動／折疊</td>
+    <td>左移／折叠</td>
 </tr>
 <tr>
     <td class="shortcut">J / Alt + J</td>
     <td>:</td>
-    <td>向下移動</td>
+    <td>下移</td>
 </tr>
 <tr>
     <td class="shortcut">K / Alt + K</td>
     <td>:</td>
-    <td>向下移動</td>
+    <td>上移</td>
 </tr>
 <tr>
     <td class="shortcut">L</td>
     <td>:</td>
-    <td>向下移動／展開</td>
+    <td>右移／展开</td>
 </tr>
+<!-- TODO -->
 <tr>
     <td class="shortcut">Ctrl + J</td>
     <td>:</td>
-    <td>將焦點移至內容差異編輯器</td>
+    <td>Focus the Diff Editor</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + K</td>
     <td>:</td>
-    <td>將焦點移至板控庫狀態工具</td>
+    <td>Focus the Status tool</td>
 </tr>
-<!-- TODO: Remove the "title" attribute after updating the translation -->
-<tr title="Ctrl+L另外在有向無環圖(DAG)檢視中可以將焦點移至修訂號指定規範(revspec)欄位、在搜尋(grep)檢視中可以將焦點移至查詢輸入欄位……">
+<tr>
     <td class="shortcut">Ctrl + L</td>
     <td>:</td>
-    <!-- TODO: Focus the Commit summary, Grep query, DAG query, ... -->
-    <td>將焦點移至提交變更工具</td>
+    <!-- TODO: Focus the Commit summary, Grep query, DAG query, ...-->
+    <td>聚焦在 DAG 输入框</td>
 </tr>
 </table>
 </body>

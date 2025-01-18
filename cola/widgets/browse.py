@@ -1,5 +1,5 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 import shlex
+import shutil
 
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -11,6 +11,7 @@ from ..models.browse import GitRepoModel
 from ..models.browse import GitRepoNameItem
 from ..models.selection import State
 from ..i18n import N_
+from ..models import dag
 from ..interaction import Interaction
 from .. import cmds
 from .. import core
@@ -100,7 +101,6 @@ class Browser(standard.Widget):
         self.setWindowTitle(title)
 
 
-# pylint: disable=too-many-ancestors
 class RepoTreeView(standard.TreeView):
     """Provides a filesystem-like view of a git repository."""
 
@@ -133,7 +133,7 @@ class RepoTreeView(standard.TreeView):
         queued = Qt.QueuedConnection
         self.index_about_to_change.connect(self.sync_selection, type=queued)
 
-        self.action_history = qtutils.add_action_with_status_tip(
+        self.action_history = qtutils.add_action_with_tooltip(
             self,
             N_('View History...'),
             N_('View history for selected paths'),
@@ -141,7 +141,7 @@ class RepoTreeView(standard.TreeView):
             hotkeys.HISTORY,
         )
 
-        self.action_stage = qtutils.add_action_with_status_tip(
+        self.action_stage = qtutils.add_action_with_tooltip(
             self,
             cmds.StageOrUnstage.name(),
             N_('Stage/unstage selected paths for commit'),
@@ -149,18 +149,18 @@ class RepoTreeView(standard.TreeView):
             hotkeys.STAGE_SELECTION,
         )
 
-        self.action_untrack = qtutils.add_action_with_status_tip(
+        self.action_untrack = qtutils.add_action_with_tooltip(
             self,
             N_('Untrack Selected'),
             N_('Stop tracking paths'),
             self.untrack_selected,
         )
 
-        self.action_rename = qtutils.add_action_with_status_tip(
+        self.action_rename = qtutils.add_action_with_tooltip(
             self, N_('Rename'), N_('Rename selected paths'), self.rename_selected
         )
 
-        self.action_difftool = qtutils.add_action_with_status_tip(
+        self.action_difftool = qtutils.add_action_with_tooltip(
             self,
             difftool.LaunchDifftool.name(),
             N_('Launch git-difftool on the current path'),
@@ -168,7 +168,7 @@ class RepoTreeView(standard.TreeView):
             hotkeys.DIFF,
         )
 
-        self.action_difftool_predecessor = qtutils.add_action_with_status_tip(
+        self.action_difftool_predecessor = qtutils.add_action_with_tooltip(
             self,
             N_('Diff Against Predecessor...'),
             N_('Launch git-difftool against previous versions'),
@@ -176,15 +176,16 @@ class RepoTreeView(standard.TreeView):
             hotkeys.DIFF_SECONDARY,
         )
 
-        self.action_revert_unstaged = qtutils.add_action_with_status_tip(
+        self.action_revert_unstaged = qtutils.add_action_with_tooltip(
             self,
             cmds.RevertUnstagedEdits.name(),
             N_('Revert unstaged changes to selected paths'),
             cmds.run(cmds.RevertUnstagedEdits, context),
             hotkeys.REVERT,
+            hotkeys.REVERT_ALT,
         )
 
-        self.action_revert_uncommitted = qtutils.add_action_with_status_tip(
+        self.action_revert_uncommitted = qtutils.add_action_with_tooltip(
             self,
             cmds.RevertUncommittedEdits.name(),
             N_('Revert uncommitted changes to selected paths'),
@@ -192,7 +193,7 @@ class RepoTreeView(standard.TreeView):
             hotkeys.UNDO,
         )
 
-        self.action_editor = qtutils.add_action_with_status_tip(
+        self.action_editor = qtutils.add_action_with_tooltip(
             self,
             cmds.LaunchEditor.name(),
             N_('Edit selected paths'),
@@ -200,7 +201,7 @@ class RepoTreeView(standard.TreeView):
             hotkeys.EDIT,
         )
 
-        self.action_blame = qtutils.add_action_with_status_tip(
+        self.action_blame = qtutils.add_action_with_tooltip(
             self,
             cmds.BlamePaths.name(),
             N_('Blame selected paths'),
@@ -221,7 +222,7 @@ class RepoTreeView(standard.TreeView):
             context, self, func=self.selected_paths
         )
 
-        self.x_width = QtGui.QFontMetrics(self.font()).width('x')
+        self.x_width = qtutils.text_width(self.font(), 'x')
         self.size_columns(force=True)
 
     def index_expanded(self, index):
@@ -282,7 +283,7 @@ class RepoTreeView(standard.TreeView):
             size = x_width * 16
         else:
             # Filename and others use the actual content
-            size = super(RepoTreeView, self).sizeHintForColumn(column)
+            size = super().sizeHintForColumn(column)
         return size
 
     def save_selection(self):
@@ -507,12 +508,12 @@ class RepoTreeView(standard.TreeView):
         cmds.do(cmds.VisualizePaths, self.context, paths)
 
     def untrack_selected(self):
-        """untrack selected paths."""
+        """Untrack selected paths."""
         context = self.context
         cmds.do(cmds.Untrack, context, self.selected_tracked_paths())
 
     def rename_selected(self):
-        """untrack selected paths."""
+        """Untrack selected paths."""
         context = self.context
         cmds.do(cmds.Rename, context, self.selected_tracked_paths())
 
@@ -538,7 +539,7 @@ class RepoTreeView(standard.TreeView):
         return self.name_item_from_index(index).path
 
 
-class BrowseModel(object):
+class BrowseModel:
     """Context data used for browsing branches via git-ls-tree"""
 
     def __init__(self, ref, filename=None):
@@ -549,22 +550,45 @@ class BrowseModel(object):
 
 class SaveBlob(cmds.ContextCommand):
     def __init__(self, context, model):
-        super(SaveBlob, self).__init__(context)
+        super().__init__(context)
         self.browse_model = model
 
     def do(self):
         git = self.context.git
         model = self.browse_model
-        ref = '%s:%s' % (model.ref, model.relpath)
-        with core.xopen(model.filename, 'wb') as fp:
-            status, output, err = git.show(ref, _stdout=fp)
+        if model.ref == dag.WORKTREE:
+            try:
+                shutil.copy2(model.relpath, model.filename)
+                err = ''
+                status = 0
+            except OSError as error:
+                err = f'\n{error}'
+                status = 1
+            out = '# shutil.copy2({}, {}){}'.format(
+                shlex.quote(model.relpath),
+                shlex.quote(model.filename),
+                err,
+            )
+            Interaction.command(
+                N_('Error Saving File'), 'shutil.copy2', status, out, err
+            )
+        else:
+            if model.ref == dag.STAGE:
+                model_ref = ':0'
+            else:
+                model_ref = model.ref
+            ref = f'{model_ref}:{model.relpath}'
+            with core.xopen(model.filename, 'wb') as fp:
+                status, output, err = git.cat_file('blob', ref, _stdout=fp)
 
-        out = '# git show %s >%s\n%s' % (
-            shlex.quote(ref),
-            shlex.quote(model.filename),
-            output,
-        )
-        Interaction.command(N_('Error Saving File'), 'git show', status, out, err)
+            out = '# git cat-file blob {} >{}\n{}'.format(
+                shlex.quote(ref),
+                shlex.quote(model.filename),
+                output,
+            )
+            Interaction.command(
+                N_('Error Saving File'), 'git cat-file', status, out, err
+            )
         if status != 0:
             return
 
@@ -662,7 +686,6 @@ class BrowseBranch(standard.Dialog):
         self.save.setEnabled(bool(filenames))
 
 
-# pylint: disable=too-many-ancestors
 class GitTreeWidget(standard.TreeView):
     selection_changed = Signal()
     path_chosen = Signal(object)
@@ -670,7 +693,6 @@ class GitTreeWidget(standard.TreeView):
     def __init__(self, parent=None):
         standard.TreeView.__init__(self, parent)
         self.setHeaderHidden(True)
-        # pylint: disable=no-member
         self.doubleClicked.connect(self.double_clicked)
 
     def double_clicked(self, index):
@@ -818,7 +840,7 @@ class GitTreeModel(GitFileTreeModel):
 
 class GitTreeItem(QtGui.QStandardItem):
     """
-    Represents a cell in a treeview.
+    Represents a cell in a tree view.
 
     Many GitRepoItems could map to a single repository path,
     but this tree only has a single column.

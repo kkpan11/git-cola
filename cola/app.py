@@ -1,16 +1,11 @@
 """Provides the main() routine and ColaApplication"""
-# pylint: disable=unused-import
-from __future__ import absolute_import, division, print_function, unicode_literals
 from functools import partial
 import argparse
 import os
+import random
 import signal
 import sys
 import time
-
-__copyright__ = """
-Copyright (C) 2007-2022 David Aguilar and contributors
-"""
 
 try:
     from qtpy import QtCore
@@ -75,6 +70,7 @@ from . import version
 def setup_environment():
     """Set environment variables to control git's behavior"""
     # Allow Ctrl-C to exit
+    random.seed(hash(time.time()))
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Session management wants an absolute path when restarting
@@ -166,7 +162,7 @@ def get_icon_themes(context):
 
 
 # style note: we use camelCase here since we're masquerading a Qt class
-class ColaApplication(object):
+class ColaApplication:
     """The main cola application
 
     ColaApplication handles i18n of user-visible data
@@ -195,11 +191,15 @@ class ColaApplication(object):
         theme = themes.find_theme(theme_str)
         self.theme = theme
         self._app.setStyleSheet(theme.build_style_sheet(self._app.palette()))
-        if theme_str != 'default':
+
+        is_macos_theme = theme_str.startswith('macos-')
+        if is_macos_theme:
+            themes.apply_platform_theme(theme_str)
+        elif theme_str != 'default':
             self._app.setPalette(theme.build_palette(self._app.palette()))
 
     def _install_hidpi_config(self):
-        """Sets QT HIDPI scalling (requires Qt 5.6)"""
+        """Sets QT HiDPI scaling (requires Qt 5.6)"""
         value = self.context.cfg.get('cola.hidpi', default=hidpi.Option.AUTO)
         hidpi.apply_choice(value)
 
@@ -247,7 +247,7 @@ class ColaQApplication(QtWidgets.QApplication):
     """QApplication implementation for handling custom events"""
 
     def __init__(self, context, argv):
-        super(ColaQApplication, self).__init__(argv)
+        super().__init__(argv)
         self.context = context
         # Make icons sharp in HiDPI screen
         if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
@@ -263,7 +263,7 @@ class ColaQApplication(QtWidgets.QApplication):
                     'cola.refreshonfocus', default=False
                 ):
                     cmds.do(cmds.Refresh, context)
-        return super(ColaQApplication, self).event(e)
+        return super().event(e)
 
     def commitData(self, session_mgr):
         """Save session data"""
@@ -274,7 +274,7 @@ class ColaQApplication(QtWidgets.QApplication):
             return
         sid = session_mgr.sessionId()
         skey = session_mgr.sessionKey()
-        session_id = '%s_%s' % (sid, skey)
+        session_id = f'{sid}_{skey}'
         session = Session(session_id, repo=core.getcwd())
         session.update()
         view.save_state(settings=session)
@@ -319,19 +319,18 @@ def restore_session(args):
         args.repo = session.repo
 
 
-def application_init(args, update=False):
+def application_init(args, update=False, app_name='Git Cola'):
     """Parses the command-line arguments and starts git-cola"""
     # Ensure that we're working in a valid git repository.
     # If not, try to find one.  When found, chdir there.
     setup_environment()
     process_args(args)
 
-    context = new_context(args)
+    context = new_context(args, app_name)
     timer = context.timer
     timer.start('init')
 
     new_worktree(context, args.repo, args.prompt)
-
     if update:
         context.model.update_status()
 
@@ -341,7 +340,7 @@ def application_init(args, update=False):
     return context
 
 
-def new_context(args):
+def new_context(args, app_name):
     """Create top-level ApplicationContext objects"""
     context = ApplicationContext(args)
     context.settings = args.settings or Settings.read()
@@ -350,6 +349,7 @@ def new_context(args):
     context.fsmonitor = fsmonitor.create(context)
     context.selection = selection.create()
     context.model = main.create(context)
+    context.app_name = app_name
     context.app = new_application(context, args)
     context.timer = Timer()
 
@@ -440,7 +440,7 @@ def add_common_arguments(parser):
 
     # Specify the GUI theme
     parser.add_argument(
-        '--theme', metavar='<name>', default=None, help='specify an GUI theme name'
+        '--theme', metavar='<name>', default=None, help='specify a GUI theme name'
     )
 
 
@@ -508,9 +508,9 @@ def async_update(context):
     """Update the model in the background
 
     git-cola should startup as quickly as possible.
-
     """
-    update_status = partial(context.model.update_status, update_index=True)
+    update_index = context.cfg.get('cola.updateindex', True)
+    update_status = partial(context.model.update_status, update_index=update_index)
     task = qtutils.SimpleTask(update_status)
     context.runtask.start(task)
 
@@ -553,7 +553,7 @@ def initialize():
             os.chdir('..')
 
 
-class Timer(object):
+class Timer:
     """Simple performance timer"""
 
     def __init__(self):
@@ -578,16 +578,21 @@ class Timer(object):
     def display(self, key):
         """Display a timer"""
         elapsed = self.elapsed(key)
-        sys.stdout.write('%s: %.5fs\n' % (key, elapsed))
+        sys.stdout.write(f'{key}: {elapsed:.5f}s\n')
 
 
-class NullArgs(object):
+class NullArgs:
     """Stub arguments for interactive API use"""
 
     def __init__(self):
         self.icon_themes = []
-        self.theme = None
+        self.perf = False
+        self.prompt = False
+        self.repo = core.getcwd()
+        self.session = None
         self.settings = None
+        self.theme = None
+        self.version = False
 
 
 def null_args():
@@ -595,7 +600,7 @@ def null_args():
     return NullArgs()
 
 
-class ApplicationContext(object):
+class ApplicationContext:
     """Context for performing operations on Git and related data models"""
 
     def __init__(self, args):

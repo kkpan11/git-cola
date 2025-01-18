@@ -1,5 +1,4 @@
 """The startup dialog is presented when no repositories can be found at startup"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 from qtpy.QtCore import Qt
 from qtpy import QtCore
@@ -132,8 +131,6 @@ class StartupDialog(standard.Dialog):
         qtutils.connect_button(self.clone_button, self.clone_repo)
         qtutils.connect_button(self.new_button, self.new_repo)
         qtutils.connect_button(self.close_button, self.reject)
-
-        # pylint: disable=no-member
         self.tab_bar.currentChanged.connect(self.tab_changed)
 
         self.init_state(settings, self.resize_widget)
@@ -293,7 +290,7 @@ class StartupDialog(standard.Dialog):
 
 
 def get_all_repos(context, settings):
-    """Return a sorted list of bookmarks and recent repositorties"""
+    """Return a sorted list of bookmarks and recent repositories"""
     bookmarks = settings.bookmarks
     recent = settings.recent
     all_repos = [(repo, True) for repo in bookmarks] + [
@@ -311,14 +308,14 @@ class BookmarksListView(QtWidgets.QListView):
     """
 
     def __init__(self, context, model, open_selected_repo, set_model, parent=None):
-        super(BookmarksListView, self).__init__(parent)
+        super().__init__(parent)
 
         self.current_mode = ICON_MODE
         self.context = context
         self.open_selected_repo = open_selected_repo
         self.set_model = set_model
 
-        self.setEditTriggers(self.SelectedClicked)
+        self.setEditTriggers(self.__class__.SelectedClicked)
 
         self.activated.connect(self.open_selected_repo)
 
@@ -379,7 +376,6 @@ class BookmarksListView(QtWidgets.QListView):
             N_('Remove stale entries for repositories that no longer exist')
         )
 
-        # pylint: disable=no-member
         self.model().itemChanged.connect(self.item_changed)
 
         self.action_group = utils.Group(
@@ -504,7 +500,7 @@ class BookmarksListView(QtWidgets.QListView):
         self.apply_func(self.accept_item)
 
     def accept_item(self, _item):
-        if self.state() & self.EditingState:
+        if qtutils.enum_value(self.state()) & qtutils.enum_value(self.EditingState):
             current_index = self.currentIndex()
             widget = self.indexWidget(current_index)
             if widget:
@@ -553,7 +549,7 @@ class BookmarksListView(QtWidgets.QListView):
         self.refresh()
 
 
-class BuildItem(object):
+class BuildItem:
     def __init__(self, context):
         self.star_icon = icons.star()
         self.folder_icon = icons.folder()

@@ -1,7 +1,6 @@
 """Functions for finding cola resources"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import os
-from os.path import dirname
+import sys
 import webbrowser
 
 from . import core
@@ -18,15 +17,17 @@ if _package.endswith(os.path.join('site-packages', 'cola')):
     # Unix release tree
     # __file__ = '$prefix/lib/pythonX.Y/site-packages/cola/__file__.py'
     # _package = '$prefix/lib/pythonX.Y/site-packages/cola'
-    _prefix = dirname(dirname(dirname(dirname(_package))))
+    _prefix = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(_package)))
+    )
 elif _package.endswith(os.path.join('pkgs', 'cola')):
     # Windows release tree
     # __file__ = $installdir/pkgs/cola
-    _prefix = dirname(dirname(_package))
+    _prefix = os.path.dirname(os.path.dirname(_package))
 else:
     # this is the source tree
     # __file__ = '$prefix/cola/__file__.py'
-    _prefix = dirname(_package)
+    _prefix = os.path.dirname(_package)
 
 
 def get_prefix():
@@ -39,35 +40,59 @@ def prefix(*args):
     return os.path.join(get_prefix(), *args)
 
 
+def sibling_bindir(*args):
+    """Return a command sibling to sys.argv[0]"""
+    relative_bindir = os.path.dirname(sys.argv[0])
+    return os.path.join(relative_bindir, *args)
+
+
 def command(name):
     """Return a command from the bin/ directory"""
     if compat.WIN32:
+        # On Windows we have to support being installed via the pynsist installation
+        # layout and the pip-installed layout. We also have check for .exe launchers
+        # and prefer them when present.
+        sibling = sibling_bindir(name)
+        scripts = prefix('Scripts', name)
+        bindir = prefix('bin', name)
         # Check for "${name}.exe" on Windows.
-        exe_path = prefix('bin', '%s.exe' % name)
-        scripts_exe_path = prefix('Scripts', '%s.exe' % name)
-        scripts_path = prefix('Scripts', name)
-        path = prefix('bin', name)
-
-        if core.exists(exe_path):
-            result = exe_path
-        elif core.exists(scripts_exe_path):
-            result = scripts_exe_path
-        elif core.exists(scripts_path):
-            result = scripts_path
+        exe = f'{name}.exe'
+        sibling_exe = sibling_bindir(exe)
+        scripts_exe = prefix('Scripts', exe)
+        bindir_exe = prefix('bin', exe)
+        if core.exists(sibling_exe):
+            result = sibling_exe
+        elif core.exists(sibling):
+            result = sibling
+        elif core.exists(bindir_exe):
+            result = bindir_exe
+        elif core.exists(scripts_exe):
+            result = scripts_exe
+        elif core.exists(scripts):
+            result = scripts
         else:
-            result = path
+            result = bindir
     else:
-        result = prefix('bin', name)
+        result = sibling_bindir(name)
+        if not core.exists(result):
+            result = prefix('bin', name)
+
     return result
 
 
 def doc(*args):
-    """Return a path relative to cola's /usr/share/doc/ directory"""
-    return share('doc', 'git-cola', *args)
+    """Return a path relative to cola's /usr/share/doc/ directory or the docs/ directory"""
+    # pyproject.toml does not support data_files in pyproject.toml so we install the
+    # hotkey files as cola/data/ package data. This is a fallback location for when
+    # users did not use the garden.yaml or Makefile to install cola.
+    path = share('doc', 'git-cola', *args)
+    if not os.path.exists(path):
+        path = prefix('docs', *args)
+    return path
 
 
 def i18n(*args):
-    """Return a path relative to cola's i18n locale directory, eg. cola/i18n"""
+    """Return a path relative to cola's i18n locale directory, e.g. cola/i18n"""
     return package_data('i18n', *args)
 
 
@@ -97,6 +122,16 @@ def share(*args):
 def package_data(*args):
     """Return a path relative to cola's Python modules"""
     return os.path.join(_package, *args)
+
+
+def data_path(*args):
+    """Return a path relative to cola's data directory"""
+    return package_data('data', *args)
+
+
+def icon_path(*args):
+    """Return a path relative to cola's icons directory"""
+    return package_data('icons', *args)
 
 
 def package_command(*args):
@@ -137,7 +172,7 @@ def xdg_config_home(*args):
 
 
 def xdg_data_home(*args):
-    """Return the XDG_DATA_HOME configuration directory, eg. ~/.local/share"""
+    """Return the XDG_DATA_HOME configuration directory, e.g. ~/.local/share"""
     config = core.getenv(
         'XDG_DATA_HOME', os.path.join(core.expanduser('~'), '.local', 'share')
     )
@@ -176,5 +211,5 @@ def find_first(subpath, paths, validate=os.path.isfile):
 
 
 def config_home(*args):
-    """Return git-cola's configuration directory, eg. ~/.config/git-cola"""
+    """Return git-cola's configuration directory, e.g. ~/.config/git-cola"""
     return xdg_config_home('git-cola', *args)

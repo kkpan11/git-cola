@@ -1,5 +1,4 @@
 """Provides dialogs for comparing branches and commits."""
-from __future__ import absolute_import, division, print_function, unicode_literals
 
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
@@ -104,7 +103,6 @@ class CompareBranchesDialog(standard.Dialog):
         connect_button(self.button_close, self.accept)
         connect_button(self.button_compare, self.compare)
 
-        # pylint: disable=no-member
         self.diff_files.itemDoubleClicked.connect(lambda _: self.compare())
         self.left_combo.currentIndexChanged.connect(
             lambda x: self.update_combo_boxes(left=True)
@@ -112,7 +110,6 @@ class CompareBranchesDialog(standard.Dialog):
         self.right_combo.currentIndexChanged.connect(
             lambda x: self.update_combo_boxes(left=False)
         )
-
         self.left_list.itemSelectionChanged.connect(self.update_diff_files)
         self.right_list.itemSelectionChanged.connect(self.update_diff_files)
 

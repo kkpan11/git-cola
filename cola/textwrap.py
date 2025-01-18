@@ -1,17 +1,16 @@
 """Text wrapping and filling"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import re
 
 from .compat import ustr
 
 # Copyright (C) 1999-2001 Gregory P. Ward.
 # Copyright (C) 2002, 2003 Python Software Foundation.
-# Copyright (C) 2013, David Aguilar
+# Copyright (C) 2013-2024 David Aguilar
 # Written by Greg Ward <gward@python.net>
 # Simplified for git-cola by David Aguilar <davvid@gmail.com>
 
 
-class TextWrapper(object):
+class TextWrapper:
     """
     Object for wrapping/filling text.  The public interface consists of
     the wrap() and fill() methods; the other methods are just there for
@@ -26,7 +25,7 @@ class TextWrapper(object):
         The width of a tab used when calculating line length.
       break_on_hyphens (default: false)
         Allow breaking hyphenated words. If true, wrapping will occur
-        preferably on whitespaces and right after hyphens part of
+        preferably on whitespace and right after the hyphenated part of
         compound words.
       drop_whitespace (default: true)
         Drop leading and trailing whitespace from lines.
@@ -100,7 +99,7 @@ class TextWrapper(object):
         'self.width' or less.  Some lines may be longer than this.  Chunks
         correspond roughly to words and the whitespace between them: each
         chunk is indivisible, but a line break can come between any two
-        chunks.  Chunks should not have internal whitespace; ie. a chunk is
+        chunks.  Chunks should not have internal whitespace; i.e. a chunk is
         either all whitespace or a "word".  Whitespace chunks will be removed
         from the beginning and end of lines, but apart from that whitespace is
         preserved.
@@ -121,7 +120,7 @@ class TextWrapper(object):
             width = self.width
 
             # First chunk on line is a space -- drop it, unless this
-            # is the very beginning of the text (ie. no lines started yet).
+            # is the very beginning of the text (i.e. no lines started yet).
             if self.drop_whitespace and is_blank(chunks[-1]) and lines:
                 chunks.pop()
 
@@ -144,7 +143,7 @@ class TextWrapper(object):
                 if not cur_line:
                     cur_line.append(chunks.pop())
 
-            # Avoid whitespace at the beginining of split lines
+            # Avoid whitespace at the beginning of split lines
             if (
                 linebreak
                 and self.drop_whitespace
@@ -195,7 +194,7 @@ class TextWrapper(object):
         more than 'self.width' columns, and return a new string
         containing the entire wrapped paragraph.
         """
-        return "\n".join(self.wrap(text))
+        return '\n'.join(self.wrap(text))
 
 
 def word_wrap(text, tabwidth, limit, break_on_hyphens=False):

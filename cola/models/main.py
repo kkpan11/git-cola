@@ -1,5 +1,4 @@
 """The central cola model"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 
 from qtpy import QtCore
@@ -10,7 +9,15 @@ from .. import gitcmds
 from .. import gitcfg
 from .. import version
 from ..git import STDOUT
+from ..interaction import Interaction
+from ..i18n import N_
 from . import prefs
+
+
+FETCH = 'fetch'
+FETCH_HEAD = 'FETCH_HEAD'
+PUSH = 'push'
+PULL = 'pull'
 
 
 def create(context):
@@ -18,12 +25,11 @@ def create(context):
     return MainModel(context)
 
 
-# pylint: disable=too-many-public-methods
 class MainModel(QtCore.QObject):
     """Repository status model"""
 
     # Refactor: split this class apart into separate DiffModel, CommitMessageModel,
-    # StatusModel, and an DiffEditorState.
+    # StatusModel, and a DiffEditorState.
 
     # Signals
     about_to_update = Signal()
@@ -54,22 +60,25 @@ class MainModel(QtCore.QObject):
     mode_diff = 'diff'  # Diffing against an arbitrary commit
 
     # Modes where we can checkout files from the $head
-    modes_undoable = set((mode_amend, mode_diff, mode_index, mode_worktree))
+    modes_undoable = {mode_amend, mode_diff, mode_index, mode_worktree}
 
     # Modes where we can partially stage files
-    modes_partially_stageable = set(
-        (mode_amend, mode_diff, mode_worktree, mode_untracked_diff)
-    )
+    modes_partially_stageable = {
+        mode_amend,
+        mode_diff,
+        mode_worktree,
+        mode_untracked_diff,
+    }
 
     # Modes where we can partially unstage files
-    modes_unstageable = set((mode_amend, mode_diff, mode_index))
+    modes_unstageable = {mode_amend, mode_diff, mode_index}
 
     unstaged = property(lambda self: self.modified + self.unmerged + self.untracked)
     """An aggregate of the modified, unmerged, and untracked file lists."""
 
     def __init__(self, context, cwd=None):
         """Interface to the main repository status"""
-        super(MainModel, self).__init__()
+        super().__init__()
 
         self.context = context
         self.git = context.git
@@ -207,7 +216,7 @@ class MainModel(QtCore.QObject):
             if not msg.endswith('\n'):
                 msg += '\n'
             core.write(path, msg)
-        except (OSError, IOError):
+        except OSError:
             pass
         return path
 
@@ -399,7 +408,7 @@ class MainModel(QtCore.QObject):
         context = self.context
         merge_msg_path = gitcmds.merge_message_path(context)
         if merge_msg_path:
-            msg = core.read(merge_msg_path)
+            msg = gitcmds.read_merge_commit_message(context, merge_msg_path)
             if msg != self._auto_commitmsg:
                 self._auto_commitmsg = msg
                 self._prev_commitmsg = self.commitmsg
@@ -438,28 +447,22 @@ class MainModel(QtCore.QObject):
         return gitcmds.remote_url(self.context, name, push=push)
 
     def fetch(self, remote, **opts):
-        result = run_remote_action(self.context, self.git.fetch, remote, **opts)
+        result = run_remote_action(self.context, self.git.fetch, remote, FETCH, **opts)
         self.update_refs()
         return result
 
     def push(self, remote, remote_branch='', local_branch='', **opts):
         # Swap the branches in push mode (reverse of fetch)
-        opts.update(
-            {
-                'local_branch': remote_branch,
-                'remote_branch': local_branch,
-            }
-        )
-        result = run_remote_action(
-            self.context, self.git.push, remote, push=True, **opts
-        )
+        opts.update({
+            'local_branch': remote_branch,
+            'remote_branch': local_branch,
+        })
+        result = run_remote_action(self.context, self.git.push, remote, PUSH, **opts)
         self.update_refs()
         return result
 
     def pull(self, remote, **opts):
-        result = run_remote_action(
-            self.context, self.git.pull, remote, pull=True, **opts
-        )
+        result = run_remote_action(self.context, self.git.pull, remote, PULL, **opts)
         # Pull can result in merge conflicts
         self.update_refs()
         self.update_files(update_index=False, emit=True)
@@ -500,18 +503,17 @@ class MainModel(QtCore.QObject):
         self.update_refs()
 
 
-class Types(object):
+class Types:
     """File types (used for image diff modes)"""
 
     IMAGE = 'image'
     TEXT = 'text'
 
 
-# Helpers
-# pylint: disable=too-many-arguments
 def remote_args(
     context,
     remote,
+    action,
     local_branch='',
     remote_branch='',
     ff_only=False,
@@ -519,22 +521,20 @@ def remote_args(
     no_ff=False,
     tags=False,
     rebase=False,
-    pull=False,
-    push=False,
     set_upstream=False,
     prune=False,
 ):
     """Return arguments for git fetch/push/pull"""
 
     args = [remote]
-    what = refspec_arg(local_branch, remote_branch, pull, push)
+    what = refspec_arg(local_branch, remote_branch, remote, action)
     if what:
         args.append(what)
 
     kwargs = {
         'verbose': True,
     }
-    if pull:
+    if action == PULL:
         if rebase:
             kwargs['rebase'] = True
         elif ff_only:
@@ -542,13 +542,12 @@ def remote_args(
         elif no_ff:
             kwargs['no_ff'] = True
     elif force:
-        # pylint: disable=simplifiable-if-statement
-        if push and version.check_git(context, 'force-with-lease'):
+        if action == PUSH and version.check_git(context, 'force-with-lease'):
             kwargs['force_with_lease'] = True
         else:
             kwargs['force'] = True
 
-    if push and set_upstream:
+    if action == PUSH and set_upstream:
         kwargs['set_upstream'] = True
     if tags:
         kwargs['tags'] = True
@@ -558,23 +557,181 @@ def remote_args(
     return (args, kwargs)
 
 
-def refspec(src, dst, push=False):
-    if push and src == dst:
+def refspec(src, dst, action):
+    if action == PUSH and src == dst:
         spec = src
     else:
-        spec = '%s:%s' % (src, dst)
+        spec = f'{src}:{dst}'
     return spec
 
 
-def refspec_arg(local_branch, remote_branch, pull, push):
+def refspec_arg(local_branch, remote_branch, remote, action):
     """Return the refspec for a fetch or pull command"""
-    if not pull and local_branch and remote_branch:
-        what = refspec(remote_branch, local_branch, push=push)
+    ref = None
+    if action == PUSH and local_branch and remote_branch:  # Push with local and remote.
+        ref = refspec(local_branch, remote_branch, action)
+    elif action == FETCH:
+        if local_branch and remote_branch:  # Fetch with local and remote.
+            if local_branch == FETCH_HEAD:
+                ref = remote_branch
+            else:
+                ref = refspec(remote_branch, local_branch, action)
+        elif remote_branch:
+            # If we are fetching and only a remote branch was specified then setup
+            # a refspec that will fetch into the remote tracking branch only.
+            ref = refspec(
+                remote_branch,
+                f'refs/remotes/{remote}/{remote_branch}',
+                action,
+            )
+    if not ref and local_branch != FETCH_HEAD:
+        ref = local_branch or remote_branch or None
+    return ref
+
+
+def run_remote_action(context, fn, remote, action, **kwargs):
+    """Run fetch, push or pull"""
+    kwargs.pop('_add_env', None)
+    args, kwargs = remote_args(context, remote, action, **kwargs)
+    autodetect_proxy(context, kwargs)
+    no_color(kwargs)
+    return fn(*args, **kwargs)
+
+
+def no_color(kwargs):
+    """Augment kwargs with an _add_env environment dict that disables colors"""
+    try:
+        env = kwargs['_add_env']
+    except KeyError:
+        env = kwargs['_add_env'] = {}
     else:
-        what = local_branch or remote_branch or None
-    return what
+        if env is None:
+            env = kwargs['_add_env'] = {}
+    env['NO_COLOR'] = '1'
+    env['TERM'] = 'dumb'
 
 
-def run_remote_action(context, action, remote, **kwargs):
-    args, kwargs = remote_args(context, remote, **kwargs)
-    return action(*args, **kwargs)
+def autodetect_proxy(context, kwargs):
+    """Detect proxy settings when running on Gnome and KDE"""
+    # kwargs can refer to persistent global state so we purge it.
+    # Callers should not expect their _add_env to persist.
+    kwargs.pop('_add_env', None)
+    enabled = prefs.autodetect_proxy(context)
+    if not enabled:
+        return
+    # If "git config http.proxy" is configured then there's nothing to do.
+    http_proxy = prefs.http_proxy(context)
+    if http_proxy:
+        Interaction.log(
+            N_('http proxy configured by "git config http.proxy %(url)s"')
+            % dict(url=http_proxy)
+        )
+        return
+    # This function has the side-effect of updating the kwargs dict.
+    # The "_add_env" parameter gets forwarded to the __getattr__ git function's
+    # _add_env option which forwards to core.run_command()'s add_env option.
+    add_env = autodetect_proxy_environ()
+    if add_env:
+        kwargs['_add_env'] = add_env
+
+
+def autodetect_proxy_environ():
+    """Return the environment variables used for configuring proxies"""
+    add_env = {}
+    xdg_current_desktop = core.getenv('XDG_CURRENT_DESKTOP', default='')
+    if not xdg_current_desktop:
+        return add_env
+
+    http_proxy = None
+    https_proxy = None
+    if xdg_current_desktop == 'KDE' or xdg_current_desktop.endswith(':KDE'):
+        kreadconfig = core.find_executable('kreadconfig5')
+        if kreadconfig:
+            http_proxy = autodetect_proxy_kde(kreadconfig, 'http')
+            https_proxy = autodetect_proxy_kde(kreadconfig, 'https')
+    elif xdg_current_desktop:
+        # If we're not on KDE then we'll fallback to GNOME / gsettings.
+        gsettings = core.find_executable('gsettings')
+        if gsettings and autodetect_proxy_gnome_is_enabled(gsettings):
+            http_proxy = autodetect_proxy_gnome(gsettings, 'http')
+            https_proxy = autodetect_proxy_gnome(gsettings, 'https')
+
+    if os.environ.get('http_proxy'):
+        Interaction.log(
+            N_('http proxy configured by the "http_proxy" environment variable')
+        )
+    elif http_proxy:
+        Interaction.log(
+            N_('%(scheme)s proxy configured from %(desktop)s settings: %(url)s')
+            % dict(scheme='http', desktop=xdg_current_desktop, url=http_proxy)
+        )
+        add_env['http_proxy'] = http_proxy
+
+    if os.environ.get('https_proxy', None):
+        Interaction.log(
+            N_('https proxy configured by the "https_proxy" environment variable')
+        )
+    elif https_proxy:
+        Interaction.log(
+            N_('%(scheme)s proxy configured from %(desktop)s settings: %(url)s')
+            % dict(scheme='https', desktop=xdg_current_desktop, url=https_proxy)
+        )
+        add_env['https_proxy'] = https_proxy
+
+    return add_env
+
+
+def autodetect_proxy_gnome_is_enabled(gsettings):
+    """Is the proxy manually configured on Gnome?"""
+    status, out, _ = core.run_command(
+        [gsettings, 'get', 'org.gnome.system.proxy', 'mode']
+    )
+    return status == 0 and out.strip().strip("'") == 'manual'
+
+
+def autodetect_proxy_gnome(gsettings, scheme):
+    """Return the configured HTTP proxy for Gnome"""
+    status, out, _ = core.run_command(
+        [gsettings, 'get', f'org.gnome.system.proxy.{scheme}', 'host']
+    )
+    if status != 0:
+        return None
+    host = out.strip().strip("'")
+    port = ''
+    status, out, _ = core.run_command(
+        [gsettings, 'get', f'org.gnome.system.proxy.{scheme}', 'port']
+    )
+    if status == 0:
+        port = ':' + out.strip()
+    proxy = host + port
+    return proxy
+
+
+def autodetect_proxy_kde(kreadconfig, scheme):
+    """Return the configured HTTP proxy for KDE"""
+    cmd = [
+        kreadconfig,
+        '--file',
+        'kioslaverc',
+        '--group',
+        'Proxy Settings',
+        '--key',
+        'ProxyType',
+    ]
+    status, out, err = core.run_command(cmd)
+    if status == 0 and out.strip() == '1':
+        cmd = [
+            kreadconfig,
+            '--file',
+            'kioslaverc',
+            '--group',
+            'Proxy Settings',
+            '--key',
+            f'{scheme}Proxy',
+        ]
+        status, out, err = core.run_command(cmd)
+        if status == 0:
+            proxy = out.strip().replace(' ', ':')
+            return proxy
+        return None
+    return None

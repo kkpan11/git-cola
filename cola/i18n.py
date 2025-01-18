@@ -1,22 +1,25 @@
 """i18n and l10n support for git-cola"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import locale
 import os
+
+try:
+    import polib
+except ImportError:
+    from . import polib
 import sys
 
 from . import core
-from . import polib
 from . import resources
 
 
-class NullTranslation(object):
+class NullTranslation:
     """This is a pass-through object that does nothing"""
 
     def gettext(self, value):
         return value
 
 
-class State(object):
+class State:
     """The application-wide current translation state"""
 
     translation = NullTranslation()
@@ -35,7 +38,7 @@ class State(object):
         return cls.translation.gettext(value)
 
 
-class Translation(object):
+class Translation:
     def __init__(self, lang):
         self.lang = lang
         self.messages = {}
@@ -44,7 +47,7 @@ class Translation(object):
             self.load()
 
     def load(self):
-        """Read the pofile content into memory"""
+        """Read the .po file content into memory"""
         po = polib.pofile(self.filename, encoding='utf-8')
         messages = self.messages
         for entry in po.translated_entries():
@@ -98,7 +101,6 @@ def get_filename_for_locale(name):
 
 
 def install(lang):
-    # pylint: disable=global-statement
     if sys.platform == 'win32' and not lang:
         lang = _get_win32_default_locale()
     lang = _install_custom_language(lang)
@@ -106,7 +108,6 @@ def install(lang):
 
 
 def uninstall():
-    # pylint: disable=global-statement
     State.reset()
 
 
@@ -117,7 +118,7 @@ def _install_custom_language(lang):
         return lang
     try:
         lang = core.read(lang_file).strip()
-    except (OSError, IOError):
+    except OSError:
         return lang
     return lang
 
@@ -129,7 +130,7 @@ def _get_win32_default_locale():
         if lang:
             return lang
     try:
-        import ctypes  # pylint: disable=all
+        import ctypes
     except ImportError:
         # use only user's default locale
         return locale.getdefaultlocale()[0]

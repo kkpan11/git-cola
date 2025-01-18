@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 import math
 import re
 from collections import Counter
@@ -27,7 +26,7 @@ def _format_range(start, count):
 
 
 def _format_hunk_header(old_start, old_count, new_start, new_count, heading=''):
-    return '@@ -%s +%s @@%s\n' % (
+    return '@@ -{} +{} @@{}\n'.format(
         _format_range(old_start, old_count),
         _format_range(new_start, new_count),
         heading,
@@ -43,7 +42,7 @@ def digits(number):
     return result
 
 
-class LineCounter(object):
+class LineCounter:
     """Keep track of a diff range's values"""
 
     def __init__(self, value=0, max_value=-1):
@@ -69,7 +68,7 @@ class LineCounter(object):
         return value
 
 
-class DiffLines(object):
+class DiffLines:
     """Parse diffs and gather line numbers"""
 
     EMPTY = -1
@@ -166,7 +165,7 @@ class DiffLines(object):
         return lines
 
 
-class FormatDigits(object):
+class FormatDigits:
     """Format numbers for use in diff line numbers"""
 
     DASH = DiffLines.DASH
@@ -187,13 +186,13 @@ class FormatDigits(object):
     def value(self, old, new):
         old_str = self._format(old)
         new_str = self._format(new)
-        return '%s %s' % (old_str, new_str)
+        return f'{old_str} {new_str}'
 
     def merge_value(self, old, base, new):
         old_str = self._format(old)
         base_str = self._format(base)
         new_str = self._format(new)
-        return '%s %s %s' % (old_str, base_str, new_str)
+        return f'{old_str} {base_str} {new_str}'
 
     def number(self, value):
         return self.fmt % value
@@ -325,7 +324,7 @@ class Patch:
         # line and switches it to addition, it appends the line to the pending_additions
         # list, while additions that get switched to deletions are appended directly to
         # the content_lines list.  Each time a context line is encountered, any pending
-        # additions are then appended to the content_lines list immmediately before the
+        # additions are then appended to the content_lines list immediately before the
         # context line and the pending_additions list is cleared.
         new_content_lines = []
         pending_additions = []

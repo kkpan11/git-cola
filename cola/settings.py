@@ -1,5 +1,4 @@
 """Save settings, bookmarks, etc."""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import json
 import os
 import sys
@@ -34,11 +33,11 @@ def read_json(path):
     try:
         with core.open_read(path) as f:
             return mkdict(json.load(f))
-    except (ValueError, TypeError, OSError, IOError):  # bad path or json
+    except (ValueError, TypeError, OSError):  # bad path or json
         return {}
 
 
-def write_json(values, path):
+def write_json(values, path, sync=True):
     """Write the specified values dict to a JSON file at the specified path"""
     try:
         parent = os.path.dirname(path)
@@ -46,7 +45,9 @@ def write_json(values, path):
             core.makedirs(parent)
         with core.open_write(path) as fp:
             json.dump(values, fp, indent=4)
-    except (ValueError, TypeError, OSError, IOError):
+            if sync:
+                core.fsync(fp.fileno())
+    except (ValueError, TypeError, OSError):
         sys.stderr.write('git-cola: error writing "%s"\n' % path)
         return False
     return True
@@ -56,8 +57,8 @@ def rename_path(old, new):
     """Rename a filename. Catch exceptions and return False on error."""
     try:
         core.rename(old, new)
-    except (IOError, OSError):
-        sys.stderr.write('git-cola: error renaming "%s" to "%s"\n' % (old, new))
+    except OSError:
+        sys.stderr.write(f'git-cola: error renaming "{old}" to "{new}"\n')
         return False
     return True
 
@@ -66,11 +67,11 @@ def remove_path(path):
     """Remove a filename. Report errors to stderr."""
     try:
         core.remove(path)
-    except (IOError, OSError):
+    except OSError:
         sys.stderr.write('git-cola: error removing "%s"\n' % path)
 
 
-class Settings(object):
+class Settings:
     config_path = resources.config_home('settings')
     bookmarks = property(lambda self: mklist(self.values['bookmarks']))
     gui_state = property(lambda self: mkdict(self.values['gui_state']))
@@ -166,7 +167,7 @@ class Settings(object):
     def path(self):
         return self.config_path
 
-    def save(self):
+    def save(self, sync=True):
         """Write settings robustly to avoid losing data during a forced shutdown.
 
         To save robustly we take these steps:
@@ -182,7 +183,7 @@ class Settings(object):
         path_tmp = path + '.tmp'
         path_bak = path + '.bak'
         # Write the new settings to the .tmp file.
-        if not write_json(self.values, path_tmp):
+        if not write_json(self.values, path_tmp, sync=sync):
             return
         # Rename the current settings to a .bak file.
         if core.exists(path) and not rename_path(path, path_bak):
@@ -190,8 +191,6 @@ class Settings(object):
         # Rename the new settings from .tmp to the settings file.
         if not rename_path(path_tmp, path):
             return
-        # Flush the data to disk.
-        core.sync()
         # Delete the .bak file.
         if core.exists(path_bak):
             remove_path(path_bak)
@@ -277,19 +276,34 @@ class Settings(object):
             entry['path'] = normalize(entry['path'])
         return values
 
-    def save_gui_state(self, gui):
-        """Saves settings for a cola view"""
+    def save_gui_state(self, gui, sync=True):
+        """Saves settings for a widget"""
         name = gui.name()
         self.gui_state[name] = mkdict(gui.export_state())
-        self.save()
+        self.save(sync=sync)
 
     def get_gui_state(self, gui):
-        """Returns the saved state for a gui"""
+        """Returns the saved state for a tool"""
+        return self.get(gui.name())
+
+    def get(self, gui_name):
+        """Returns the saved state for a tool by name"""
         try:
-            state = mkdict(self.gui_state[gui.name()])
+            state = mkdict(self.gui_state[gui_name])
         except KeyError:
-            state = self.gui_state[gui.name()] = {}
+            state = self.gui_state[gui_name] = {}
         return state
+
+    def get_value(self, name, key, default=None):
+        """Return a specific setting value for the specified tool and setting key"""
+        return self.get(name).get(key, default)
+
+    def set_value(self, name, key, value, save=True, sync=True):
+        """Store a specific setting value for the specified tool and setting key value"""
+        values = self.get(name)
+        values[key] = value
+        if save:
+            self.save(sync=sync)
 
 
 def rename_entry(entries, path, name, new_name):
@@ -338,7 +352,7 @@ class Session(Settings):
         return os.path.join(self._sessions_dir, self.session_id)
 
     def path(self):
-        base_path = super(Session, self).path()
+        base_path = super().path()
         if self.expired:
             path = base_path
         else:
@@ -364,7 +378,7 @@ class Session(Settings):
         been loaded initially.
 
         """
-        result = super(Session, self).load(path=path)
+        result = super().load(path=path)
         # This is the initial load, so expire the session and remove the
         # session state file.  Future calls will be equivalent to
         # Settings.load().
@@ -384,5 +398,5 @@ class Session(Settings):
     def update(self):
         """Reload settings from the base settings path"""
         # This method does not expire the session.
-        path = super(Session, self).path()
-        return super(Session, self).load(path=path)
+        path = super().path()
+        return super().load(path=path)

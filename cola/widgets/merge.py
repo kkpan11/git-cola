@@ -1,5 +1,3 @@
-from __future__ import division, absolute_import, unicode_literals
-
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 
@@ -130,7 +128,6 @@ class Merge(standard.Dialog):
         self.setLayout(self.mainlayt)
 
         # Signal/slot connections
-        # pylint: disable=no-member
         self.revision.textChanged.connect(self.update_title)
         self.revision.enter.connect(self.merge_revision)
         self.revisions.itemSelectionChanged.connect(self.revision_selected)
@@ -238,7 +235,7 @@ class Merge(standard.Dialog):
 
     def export_state(self):
         """Export persistent settings"""
-        state = super(Merge, self).export_state()
+        state = super().export_state()
         state['no-ff'] = get(self.checkbox_noff)
         state['sign'] = get(self.checkbox_sign)
         state['commit'] = get(self.checkbox_commit)
@@ -246,7 +243,7 @@ class Merge(standard.Dialog):
 
     def apply_state(self, state):
         """Apply persistent settings"""
-        result = super(Merge, self).apply_state(state)
+        result = super().apply_state(state)
         self.checkbox_noff.setChecked(state.get('no-ff', False))
         self.checkbox_sign.setChecked(state.get('sign', False))
         self.checkbox_commit.setChecked(state.get('commit', True))

@@ -1,10 +1,9 @@
-"""This module provides core functions for handling unicode and UNIX quirks
+"""This module provides core functions for handling Unicode and Unix quirks
 
 The @interruptable functions retry when system calls are interrupted,
 e.g. when python raises an IOError or OSError with errno == EINTR.
-
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
+import ctypes
 import functools
 import itertools
 import mimetypes
@@ -50,7 +49,7 @@ _encoding_tests = [
 class UStr(ustr):
     """Unicode string wrapper that remembers its encoding
 
-    UStr wraps unicode strings to provide the `encoding` attribute.
+    UStr wraps Unicode strings to provide the `encoding` attribute.
     UStr is used when decoding strings of an unknown encoding.
     In order to generate patches that contain the original byte sequences,
     we must preserve the original encoding when calling decode()
@@ -62,9 +61,7 @@ class UStr(ustr):
     def __new__(cls, string, encoding):
         if isinstance(string, UStr):
             if encoding != string.encoding:
-                raise ValueError(
-                    'Encoding conflict: %s vs. %s' % (string.encoding, encoding)
-                )
+                raise ValueError(f'Encoding conflict: {string.encoding} vs. {encoding}')
             string = ustr(string)
 
         obj = ustr.__new__(cls, string)
@@ -82,7 +79,7 @@ def decode_maybe(value, encoding, errors='strict'):
 
 
 def decode(value, encoding=None, errors='strict'):
-    """decode(encoded_string) returns an unencoded unicode string"""
+    """decode(encoded_string) returns an un-encoded Unicode string"""
     if value is None:
         result = None
     elif isinstance(value, ustr):
@@ -112,14 +109,14 @@ def decode(value, encoding=None, errors='strict'):
 
 
 def encode(string, encoding=None):
-    """encode(unencoded_string) returns a string encoded in utf-8"""
+    """encode(string) returns a byte string encoded to UTF-8"""
     if not isinstance(string, ustr):
         return string
     return string.encode(encoding or ENCODING, 'replace')
 
 
 def mkpath(path, encoding=None):
-    # The Windows API requires unicode strings regardless of python version
+    # The Windows API requires Unicode strings regardless of python version
     if WIN32:
         return decode(path, encoding=encoding)
     # UNIX prefers bytes
@@ -142,7 +139,7 @@ def read(filename, size=-1, encoding=None, errors='strict'):
 
 
 def write(path, contents, encoding=None, append=False):
-    """Writes a unicode string to a file"""
+    """Writes a Unicode string to a file"""
     if append:
         mode = 'ab'
     else:
@@ -153,13 +150,13 @@ def write(path, contents, encoding=None, append=False):
 
 @interruptable
 def xread(fh, size=-1, encoding=None, errors='strict'):
-    """Read from a filehandle and retry when interrupted"""
+    """Read from a file handle and retry when interrupted"""
     return decode(fh.read(size), encoding=encoding, errors=errors)
 
 
 @interruptable
 def xwrite(fh, content, encoding=None):
-    """Write to a filehandle and retry when interrupted"""
+    """Write to a file handle and retry when interrupted"""
     return fh.write(encode(content, encoding=encoding))
 
 
@@ -184,7 +181,7 @@ def start_command(
     stdout=subprocess.PIPE,
     no_win32_startupinfo=False,
     stderr=subprocess.PIPE,
-    **extra
+    **extra,
 ):
     """Start the given command, and return a subprocess object.
 
@@ -197,20 +194,20 @@ def start_command(
         env.update(add_env)
 
     # Python3 on windows always goes through list2cmdline() internally inside
-    # of subprocess.py so we must provide unicode strings here otherwise
+    # of subprocess.py so we must provide Unicode strings here otherwise
     # Python3 breaks when bytes are provided.
     #
-    # Additionally, the preferred usage on Python3 is to pass unicode
+    # Additionally, the preferred usage on Python3 is to pass Unicode
     # strings to subprocess.  Python will automatically encode into the
-    # default encoding (utf-8) when it gets unicode strings.
+    # default encoding (UTF-8) when it gets Unicode strings.
     shell = extra.get('shell', False)
     cmd = prep_for_subprocess(cmd, shell=shell)
 
     if WIN32 and cwd == getcwd():
-        # Windows cannot deal with passing a cwd that contains unicode
+        # Windows cannot deal with passing a cwd that contains Unicode
         # but we luckily can pass None when the supplied cwd is the same
         # as our current directory and get the same effect.
-        # Not doing this causes unicode encoding errors when launching
+        # Not doing this causes Unicode encoding errors when launching
         # the subprocess.
         cwd = None
 
@@ -223,8 +220,7 @@ def start_command(
         # git-cola invokes git, which is very annoying.  The code below
         # prevents this by ensuring that any window will be hidden.
         startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         extra['startupinfo'] = startupinfo
 
         if WIN32 and not no_win32_startupinfo:
@@ -243,7 +239,7 @@ def start_command(
         cwd=cwd,
         env=env,
         universal_newlines=universal_newlines,
-        **extra
+        **extra,
     )
 
 
@@ -294,7 +290,7 @@ def _fork_posix(args, cwd=None, shell=False):
 
 def _fork_win32(args, cwd=None, shell=False):
     """Launch a background process using crazy win32 voodoo."""
-    # This is probably wrong, but it works.  Windows.. wow.
+    # This is probably wrong, but it works.  Windows.. Wow.
     if args[0] == 'git-dag':
         # win32 can't exec python scripts
         args = [sys.executable] + args
@@ -322,7 +318,7 @@ def _win32_find_exe(exe):
     variables.  This allows us to avoid passing shell=True to subprocess.Popen.
 
     For reference, see:
-    http://technet.microsoft.com/en-us/library/cc723564.aspx#XSLTsection127121120120
+    https://technet.microsoft.com/en-us/library/cc723564.aspx#XSLTsection127121120120
 
     """
     # try the argument itself
@@ -401,25 +397,24 @@ def guess_mimetype(filename):
 def xopen(path, mode='r', encoding=None):
     """Open a file with the specified mode and encoding
 
-    The path is decoded into unicode on Windows and encoded into bytes on Unix.
+    The path is decoded into Unicode on Windows and encoded into bytes on Unix.
     """
-    # pylint: disable=unspecified-encoding
     return open(mkpath(path, encoding=encoding), mode)
 
 
 def open_append(path, encoding=None):
-    """Open a file for appending in utf-8 text mode"""
+    """Open a file for appending in UTF-8 text mode"""
     return open(mkpath(path, encoding=encoding), 'a', encoding='utf-8')
 
 
 def open_read(path, encoding=None):
-    """Open a file for reading in utf-8 text mode"""
-    return open(mkpath(path, encoding=encoding), 'rt', encoding='utf-8')
+    """Open a file for reading in UTF-8 text mode"""
+    return open(mkpath(path, encoding=encoding), encoding='utf-8')
 
 
 def open_write(path, encoding=None):
-    """Open a file for writing in utf-8 text mode"""
-    return open(mkpath(path, encoding=encoding), 'wt', encoding='utf-8')
+    """Open a file for writing in UTF-8 text mode"""
+    return open(mkpath(path, encoding=encoding), 'w', encoding='utf-8')
 
 
 def print_stdout(msg, linesep='\n'):
@@ -452,7 +447,6 @@ exists = wrap(mkpath, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
 if PY2:
     if hasattr(os, 'getcwdu'):
-        # pylint: disable=no-member
         getcwd = os.getcwdu
     else:
         getcwd = decorate(decode, os.getcwd)
@@ -488,14 +482,47 @@ def _find_executable(executable, path=None):
     return executable
 
 
-def sync():
-    """Force writing of everything to disk. No-op on systems without os.sync()"""
-    if hasattr(os, 'sync'):
-        os.sync()
+def _fdatasync(fd):
+    """fdatasync the file descriptor. Returns True on success"""
+    try:
+        os.fdatasync(fd)
+    except OSError:
+        pass
+
+
+def _fsync(fd):
+    """fsync the file descriptor. Returns True on success"""
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+
+
+def fsync(fd):
+    """Flush contents to disk using fdatasync() / fsync()"""
+    has_libc_fdatasync = False
+    has_libc_fsync = False
+    has_os_fdatasync = hasattr(os, 'fdatasync')
+    has_os_fsync = hasattr(os, 'fsync')
+    if not has_os_fdatasync and not has_os_fsync:
+        try:
+            libc = ctypes.CDLL('libc.so.6')
+        except OSError:
+            libc = None
+        has_libc_fdatasync = libc and hasattr(libc, 'fdatasync')
+        has_libc_fsync = libc and hasattr(libc, 'fsync')
+    if has_os_fdatasync:
+        _fdatasync(fd)
+    elif has_os_fsync:
+        _fsync(fd)
+    elif has_libc_fdatasync:
+        libc.fdatasync(fd)
+    elif has_libc_fsync:
+        libc.fsync(fd)
 
 
 def rename(old, new):
-    """Rename a path. Transform arguments to handle non-ascii file paths"""
+    """Rename a path. Transform arguments to handle non-ASCII file paths"""
     os.rename(mkpath(old), mkpath(new))
 
 

@@ -3,88 +3,77 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --no-self-update
-      - name: Install Garden
-        run: cargo install garden-tools
-      - uses: Swatinem/rust-cache@v2
-      - name: Install build dependencies
-        run: |
-          set -x
-          sudo apt-get update
-          sudo apt-get install python3-sphinx python3-qtpy python3-pyqt5
-      - name: Install Git Cola
-        run: garden -D prefix="dist" install
-
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --no-self-update
-      - name: Install Garden
-        run: cargo install garden-tools
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
+        uses: actions/checkout@v4
+      - name: Get current date for caching
+        id: get-date
+        shell: bash
+        run: |
+          echo date=$(date -u +%Y-%m-%d) >> $GITHUB_OUTPUT
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ steps.get-date.outputs.date }}
+      - name: Install Rust and Garden
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          cargo install garden-tools
+      - name: Install system-provided test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install \
+              python3-pyqt5 \
+              python3-pyqt5.qtopengl \
+              python3-pyqt5.qtsvg \
+              python3-pyqt5.qtwebengine \
+              python3-qtpy
+      - name: Install pip-provided test dependencies
         run: |
           set -x
-          sudo apt-get update
-          # Runtime dependencies (required)
-          sudo apt-get install \
-              python3-qtpy \
-              python3-pyqt5
-          # Runtime dependencies (optional)
-          sudo apt-get install \
-              python3-send2trash
-          # Development dependencies
-          sudo apt-get install \
-              pylint \
-              python-is-python3 \
-              python3-pytest \
-              python3-setuptools-scm \
-              python3-sphinx
+          garden dev/virtualenv -vv -D pip_upgrade=true
+          garden dev -vv
       - name: Configure tests
         run: |
           git config --global user.name "Git Cola"
           git config --global user.email git-cola@localhost
       - name: Run tests and checks
-        run: garden check
+        run: garden check -vv
       - name: Code formatting
-        run: |
-          pip install 'black>=22.0.0'
-          garden fmt -- --check
+        run: garden fmt -vv -- --check
+      - name: Test the garden installation method
+        run: garden install -vv -D prefix=dist
 
   windows:
     name: Windows
     runs-on: windows-latest
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           architecture: x64
       - name: Pip Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/AppData/Local/pip/Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements/requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
       - name: Install Dependencies
         run: |
-          pip install wheel
-          pip install --requirement requirements/requirements.txt
-          pip install --requirement requirements/requirements-opt.txt
-          pip install --requirement requirements/requirements-dev.txt
-          pip install --requirement requirements/requirements-maint.txt
+          pip install '.[build,docs,dev,extras]'
       # Based on: contrib/win32/run-pynsist.sh
       - name: Build Installer
         run: |
@@ -97,7 +86,7 @@ jobs:
           cd build/nsis
           mv git-cola*.exe git-cola-latest-${{github.run_number}}.exe
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: git-cola-latest-${{github.run_number}}-${{runner.os}}
           path: build/nsis/git-cola*.exe
@@ -106,32 +95,38 @@ jobs:
     name: macOS
     runs-on: macos-latest
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --no-self-update
-      - name: Install Garden
-        run: cargo install garden-tools
-      - uses: Swatinem/rust-cache@v2
+        uses: actions/checkout@v4
+      - name: Get current date for caching
+        id: get-date
+        shell: bash
+        run: |
+          echo date=$(date -u +%Y-%m-%d) >> $GITHUB_OUTPUT
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ steps.get-date.outputs.date }}
+      - name: Install Rust and Garden
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          cargo install garden-tools
       - name: Install Dependencies
         run: |
-          set -x
           brew install git-cola
-          python3 -m venv env3
-          source env3/bin/activate
-          python -m pip install wheel
-          garden requirements
-          garden requirements/dev
       - name: Build Bundle
         run: |
-          set -x
-          source env3/bin/activate
-          make git-cola.app
+          garden macos/app -vv
           mv git-cola.app build/
       - name: Zip Artifact
         run: zip -r git-cola.app.zip build/*
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: git-cola-latest-${{github.run_number}}-${{runner.os}}
           path: git-cola.app.zip

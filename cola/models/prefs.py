@@ -1,16 +1,18 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 import sys
 
 from qtpy import QtCore
 from qtpy.QtCore import Signal
 
 from .. import core
+from .. import git
 from .. import hidpi
 from .. import utils
 from ..cmd import Command
 
 
+ABBREV = 'core.abbrev'
 AUTOCOMPLETE_PATHS = 'cola.autocompletepaths'
+AUTODETECT_PROXY = 'cola.autodetectproxy'
 AUTOTEMPLATE = 'cola.autoloadcommittemplate'
 BACKGROUND_EDITOR = 'cola.backgroundeditor'
 BLAME_VIEWER = 'cola.blameviewer'
@@ -19,6 +21,7 @@ BOLD_HEADERS = 'cola.boldheaders'
 CHECK_CONFLICTS = 'cola.checkconflicts'
 CHECK_PUBLISHED_COMMITS = 'cola.checkpublishedcommits'
 COMMENT_CHAR = 'core.commentchar'
+COMMIT_CLEANUP = 'commit.cleanup'
 DIFFCONTEXT = 'gui.diffcontext'
 DIFFTOOL = 'diff.tool'
 DISPLAY_UNTRACKED = 'gui.displayuntracked'
@@ -28,7 +31,10 @@ EXPANDTAB = 'cola.expandtab'
 FONTDIFF = 'cola.fontdiff'
 HIDPI = 'cola.hidpi'
 HISTORY_BROWSER = 'gui.historybrowser'
+HTTP_PROXY = 'http.proxy'
 ICON_THEME = 'cola.icontheme'
+INOTIFY = 'cola.inotify'
+NOTIFY_ON_PUSH = 'cola.notifyonpush'
 LINEBREAK = 'cola.linebreak'
 LOGDATE = 'cola.logdate'
 MAXRECENT = 'cola.maxrecent'
@@ -39,6 +45,7 @@ MERGE_VERBOSITY = 'merge.verbosity'
 MERGETOOL = 'merge.tool'
 MOUSE_ZOOM = 'cola.mousezoom'
 PATCHES_DIRECTORY = 'cola.patchesdirectory'
+REFRESH_ON_FOCUS = 'cola.refreshonfocus'
 RESIZE_BROWSER_COLUMNS = 'cola.resizebrowsercolumns'
 SAFE_MODE = 'cola.safemode'
 SAVEWINDOWSETTINGS = 'cola.savewindowsettings'
@@ -52,9 +59,10 @@ TABWIDTH = 'cola.tabwidth'
 TEXTWIDTH = 'cola.textwidth'
 USER_EMAIL = 'user.email'
 USER_NAME = 'user.name'
+UPDATE_INDEX = 'cola.updateindex'
 
 
-class DateFormat(object):
+class DateFormat:
     DEFAULT = 'default'
     RELATIVE = 'relative'
     LOCAL = 'local'
@@ -68,6 +76,7 @@ class DateFormat(object):
 
 
 def date_formats():
+    """Return valid values for git config cola.logdate"""
     return [
         DateFormat.DEFAULT,
         DateFormat.RELATIVE,
@@ -82,17 +91,31 @@ def date_formats():
     ]
 
 
-class Defaults(object):
+def commit_cleanup_modes():
+    """Return valid values for the git config commit.cleanup"""
+    return [
+        'default',
+        'whitespace',
+        'strip',
+        'scissors',
+        'verbatim',
+    ]
+
+
+class Defaults:
     """Read-only class for holding defaults that get overridden"""
 
     # These should match Git's defaults for git-defined values.
+    abbrev = 12
     autotemplate = False
+    autodetect_proxy = True
     blame_viewer = 'git gui blame'
     block_cursor = True
     bold_headers = False
     check_conflicts = True
     check_published_commits = True
     comment_char = '#'
+    commit_cleanup = 'default'
     display_untracked = True
     diff_context = 5
     difftool = 'xxdiff'
@@ -100,7 +123,10 @@ class Defaults(object):
     enable_gravatar = True
     expandtab = False
     history_browser = 'gitk'
+    http_proxy = ''
     icon_theme = 'default'
+    inotify = True
+    notifyonpush = False
     linebreak = True
     maxrecent = 8
     mergetool = difftool
@@ -109,6 +135,7 @@ class Defaults(object):
     merge_summary = True
     merge_verbosity = 2
     mouse_zoom = True
+    refresh_on_focus = False
     resize_browser_columns = False
     save_window_settings = True
     safe_mode = False
@@ -124,6 +151,26 @@ class Defaults(object):
     status_indent = False
     status_show_totals = False
     logdate = DateFormat.DEFAULT
+    update_index = True
+
+
+def abbrev(context):
+    """Return the configured length for shortening commit IDs"""
+    default = Defaults.abbrev
+    value = context.cfg.get(ABBREV, default=default)
+    if value == 'no':
+        result = git.OID_LENGTH_SHA256
+    else:
+        try:
+            result = max(4, int(value))
+        except ValueError:
+            result = default
+    return result
+
+
+def autodetect_proxy(context):
+    """Return True when proxy settings should be automatically configured"""
+    return context.cfg.get(AUTODETECT_PROXY, default=Defaults.autodetect_proxy)
 
 
 def blame_viewer(context):
@@ -206,6 +253,11 @@ def comment_char(context):
     return context.cfg.get(COMMENT_CHAR, default=Defaults.comment_char)
 
 
+def commit_cleanup(context):
+    """Return the configured git commit cleanup mode"""
+    return context.cfg.get(COMMIT_CLEANUP, default=Defaults.commit_cleanup)
+
+
 def enable_gravatar(context):
     """Is gravatar enabled?"""
     return context.cfg.get(ENABLE_GRAVATAR, default=Defaults.enable_gravatar)
@@ -233,6 +285,17 @@ def history_browser(context):
     """Return the configured history browser"""
     default = default_history_browser()
     return context.cfg.get(HISTORY_BROWSER, default=default)
+
+
+def http_proxy(context):
+    """Return the configured http proxy"""
+    return context.cfg.get(HTTP_PROXY, default=Defaults.http_proxy)
+
+
+def notify_on_push(context):
+    """Return whether to notify upon push or not"""
+    default = Defaults.notifyonpush
+    return context.cfg.get(NOTIFY_ON_PUSH, default=default)
 
 
 def linebreak(context):
@@ -304,7 +367,7 @@ class PreferencesModel(QtCore.QObject):
     config_updated = Signal(str, str, object)
 
     def __init__(self, context):
-        super(PreferencesModel, self).__init__()
+        super().__init__()
         self.context = context
         self.config = context.cfg
 

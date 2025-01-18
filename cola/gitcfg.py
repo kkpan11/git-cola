@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 from binascii import unhexlify
 import collections
 import copy
@@ -93,7 +92,7 @@ class GitConfig(QtCore.QObject):
     updated = Signal()
 
     def __init__(self, context):
-        super(GitConfig, self).__init__()
+        super().__init__()
         self.context = context
         self.git = context.git
         self._system = {}
@@ -293,13 +292,15 @@ class GitConfig(QtCore.QObject):
     def set_repo(self, key, value):
         if value in (None, ''):
             self.git.config(key, unset=True, _readonly=True)
+            self._local.pop(key, None)
         else:
             self.git.config(key, python_to_git(value), _readonly=True)
-        self.update()
+            self._local[key] = value
+        self.updated.emit()
         self.repo_config_changed.emit(key, value)
 
     def find(self, pat):
-        """Return a a dict of values for all keys matching the specified pattern"""
+        """Return a dict of values for all keys matching the specified pattern"""
         pat = pat.lower()
         match = fnmatch.fnmatch
         result = {}
@@ -362,7 +363,7 @@ class GitConfig(QtCore.QObject):
         value = None
         status, out, _ = self.git.check_attr(attr, '--', path, _readonly=True)
         if status == 0:
-            header = '%s: %s: ' % (path, attr)
+            header = f'{path}: {attr}: '
             if out.startswith(header):
                 value = out[len(header) :].strip()
         return value
@@ -375,7 +376,7 @@ class GitConfig(QtCore.QObject):
             user = os.getenv('USER', 'unknown')
 
         name = self.get('user.name', user)
-        email = self.get('user.email', '%s@%s' % (user, core.node()))
+        email = self.get('user.email', f'{user}@{core.node()}')
         return (name, email)
 
     def get_guitool_opts(self, name):
@@ -441,10 +442,8 @@ class GitConfig(QtCore.QObject):
         value = self.get('cola.color.%s' % key, default=default)
         struct_layout = core.encode('BBB')
         try:
-            # pylint: disable=no-member
             red, green, blue = struct.unpack(struct_layout, unhex(value))
         except (struct.error, TypeError):
-            # pylint: disable=no-member
             red, green, blue = struct.unpack(struct_layout, unhex(default))
         return (red, green, blue)
 
@@ -486,7 +485,6 @@ def _read_config_with_scope(context, cache_paths, renamed_keys):
     for line in config_output.splitlines():
         if not line:
             continue
-        # pylint: disable=too-many-boolean-expressions
         if (
             line.startswith(system_key)
             or line.startswith(global_key)
@@ -627,7 +625,7 @@ def _read_config_fallback(context, cache_paths, renamed_keys):
                 yield global_scope, key, value, False
 
     local_config = context.git.git_path('config')
-    if os.path.exists(local_config):
+    if local_config and os.path.exists(local_config):
         cache_paths.add(gitconfig)
         status, config_output, _ = context.git.config(
             z=True,

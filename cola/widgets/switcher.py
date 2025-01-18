@@ -1,7 +1,4 @@
 """Provides quick switcher"""
-from __future__ import absolute_import, division, print_function, unicode_literals
-import re
-
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy.QtCore import Qt
@@ -53,13 +50,13 @@ class Switcher(standard.Dialog):
     This will be inherited by outer-view class(SwitcherOuterView) or inner-view class
     (SwitcherInnerView).
 
-    inner-view class is a quick-switcher widget including view. In this case, this
+    The inner-view class is a quick-switcher widget including view. In this case, this
     switcher will have switcher_list field, and show the items list in itself.
-    outer-view class is a quick-switcher widget without view(only input field), which
-    means sharing model with other view class.
+    The outer-view class is a quick-switcher widget without view(only input field),
+    which shares model with other view class.
 
-    switcher_selection_move signal is for the event that selection move key like UP,
-    DOWN has pressed while focusing on input field.
+    The switcher_selection_move signal is the event that the selection move actions
+    emit while the input field is focused.
     """
 
     def __init__(
@@ -82,9 +79,14 @@ class Switcher(standard.Dialog):
         self.filter_input.textChanged.connect(self.filter_input_changed)
 
     def filter_input_changed(self):
+        """Update the proxy model filter when the input text changes"""
         input_text = self.filter_input.text()
-        pattern = '.*'.join(re.escape(c) for c in input_text)
-        self.proxy_model.setFilterRegExp(pattern)
+        # Use a case-sensitive search when the input text is ALL_CAPS or mixedCaps.
+        if input_text.upper() == input_text or input_text.lower() != input_text:
+            self.proxy_model.setFilterCaseSensitivity(Qt.CaseSensitive)
+        else:
+            self.proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.proxy_model.setFilterWildcard(input_text)
 
 
 class SwitcherInnerView(Switcher):
@@ -166,13 +168,12 @@ class SwitcherOuterView(Switcher):
             parent=parent,
         )
         self.filter_input.hide()
-
         self.main_layout = qtutils.vbox(defs.no_margin, defs.spacing, self.filter_input)
         self.setLayout(self.main_layout)
+        self.filter_input.editingFinished.connect(self.filter_input_edited)
 
-    def filter_input_changed(self):
-        super().filter_input_changed()
-        # Hide the input when it becomes empty.
+    def filter_input_edited(self):
+        """Hide the filter input when editing is complete and the text is empty"""
         input_text = self.filter_input.text()
         if not input_text:
             self.filter_input.hide()
@@ -231,7 +232,6 @@ class SwitcherSortFilterProxyModel(QtCore.QSortFilterProxyModel):
         return self.entries.itemFromIndex(self.mapToSource(index))
 
 
-# pylint: disable=too-many-ancestors
 class SwitcherTreeView(standard.TreeView):
     """Tree view class for showing proxy items in SwitcherSortFilterProxyModel"""
 

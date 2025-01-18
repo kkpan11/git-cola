@@ -1,5 +1,4 @@
 """Provides widgets related to bookmarks"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 
 from qtpy import QtCore
@@ -189,7 +188,6 @@ def disable_rename(_path, _name, _new_name):
     return False
 
 
-# pylint: disable=too-many-ancestors
 class BookmarksTreeView(standard.TreeView):
     default_changed = Signal()
     toggle_switcher = Signal(bool)
@@ -207,7 +205,7 @@ class BookmarksTreeView(standard.TreeView):
 
         # We make the items editable, but we don't want the double-click
         # behavior to trigger editing.  Make it behave like Mac OS X's Finder.
-        self.setEditTriggers(self.SelectedClicked)
+        self.setEditTriggers(self.__class__.SelectedClicked)
 
         self.open_action = qtutils.add_action(
             self, N_('Open'), self.open_repo, hotkeys.OPEN
@@ -508,7 +506,7 @@ class BookmarksTreeView(standard.TreeView):
         self.refresh()
 
 
-class BuildItem(object):
+class BuildItem:
     def __init__(self, context):
         self.star_icon = icons.star()
         self.folder_icon = icons.folder()

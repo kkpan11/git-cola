@@ -12,6 +12,7 @@ Thanks
 * Adil
 * AJ Bagwell
 * akontsevich
+* Albert Vaca Cintora
 * Aleksey Kontsevich
 * Alexander Preißner
 * Alex Chernetz
@@ -34,6 +35,7 @@ Thanks
 * balping
 * Barış ÇELİK
 * Barry Roberts
+* Bastian Müller
 * Boris W
 * Ben Boeckel
 * Ben Cole
@@ -91,14 +93,14 @@ Thanks
 * Felipe Morales
 * Filip Danilović
 * Floris Lambrechts
-* fu7mu4
+* Frank Weber
 * Garoe Dorta
 * Geoffrey van Wyk
 * Georg Limbach
 * geotavros
 * Gianni Lerro
 * Giovanni Martins
-* `Git Hackers <http://git-scm.com/about>`_
+* `Git Hackers <https://git-scm.com/about>`_
 * Graham Bartlett
 * green-eyed-bear
 * Glen Mailer
@@ -209,6 +211,7 @@ Thanks
 * ochristi
 * Oliver Haessler
 * OmegaPhil (Omega Weapon)
+* Ori shalhon
 * Owen Healy
 * Pamela Strucker
 * Paolo G. Giarrusso
@@ -222,6 +225,7 @@ Thanks
 * Peer Sommerlund
 * Peter Dave Hello
 * Peter Jensen
+* Peter Justin
 * Peter Júnoš
 * Petr Gladkikh
 * Philip Stark
@@ -262,10 +266,12 @@ Thanks
 * Szymon Judasz
 * Taylor Braun-Jones
 * Thiemo van Engelen
+* Thomas McKay
 * Thomas Kiley
 * Thomas Kluyver
 * Thomas Thorne
 * Tom Dobbelaere
+* Tomo Dote
 * Tim Brown
 * Tim Gates
 * Tim Schumacher
@@ -284,6 +290,7 @@ Thanks
 * Victorhck
 * Ville Skyttä
 * Virgil Dupras
+* Vishnu Sanal
 * Vitor Lobo
 * v.paritskiy
 * waterzch

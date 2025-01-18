@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 import re
 
 from qtpy import QtCore
@@ -12,7 +11,6 @@ from ..i18n import N_
 from .text import HintedTextEdit
 
 
-# pylint: disable=too-many-ancestors
 class SpellCheckTextEdit(HintedTextEdit):
     def __init__(self, context, hint, check=None, parent=None):
         HintedTextEdit.__init__(self, context, hint, parent)
@@ -25,9 +23,13 @@ class SpellCheckTextEdit(HintedTextEdit):
         if event.button() == Qt.RightButton:
             # Rewrite the mouse event to a left button event so the cursor is
             # moved to the location of the pointer.
+            if hasattr(event, 'position'):  # Qt6
+                position = event.position()
+            else:
+                position = event.pos()
             event = QtGui.QMouseEvent(
                 QtCore.QEvent.MouseButtonPress,
-                event.pos(),
+                position,
                 Qt.LeftButton,
                 Qt.LeftButton,
                 Qt.NoModifier,
@@ -35,7 +37,7 @@ class SpellCheckTextEdit(HintedTextEdit):
         HintedTextEdit.mousePressEvent(self, event)
 
     def create_context_menu(self, event_pos):
-        popup_menu = super(SpellCheckTextEdit, self).create_context_menu(event_pos)
+        popup_menu = super().create_context_menu(event_pos)
 
         # Check if the selected word is misspelled and offer spelling
         # suggestions if it is.
@@ -63,7 +65,7 @@ class SpellCheckTextEdit(HintedTextEdit):
         cursor = self.textCursor()
         cursor.select(QtGui.QTextCursor.WordUnderCursor)
         self.setTextCursor(cursor)
-        super(SpellCheckTextEdit, self).contextMenuEvent(event)
+        super().contextMenuEvent(event)
 
     def correct(self, word):
         """Replaces the selected text with word."""
@@ -89,9 +91,7 @@ class SpellCheckLineEdit(SpellCheckTextEdit):
     # This widget is a single-line QTextEdit as described in
     # http://blog.ssokolow.com/archives/2022/07/22/a-qlineedit-replacement-with-spell-checking/
     def __init__(self, context, hint, check=None, parent=None):
-        super(SpellCheckLineEdit, self).__init__(
-            context, hint, check=check, parent=parent
-        )
+        super().__init__(context, hint, check=check, parent=parent)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -102,7 +102,7 @@ class SpellCheckLineEdit(SpellCheckTextEdit):
 
     def focusInEvent(self, event):
         """Select text when entering with a tab to mimic QLineEdit"""
-        super(SpellCheckLineEdit, self).focusInEvent(event)
+        super().focusInEvent(event)
 
         if event.reason() in (
             Qt.BacktabFocusReason,
@@ -113,7 +113,7 @@ class SpellCheckLineEdit(SpellCheckTextEdit):
 
     def focusOutEvent(self, event):
         """De-select text when exiting with tab to mimic QLineEdit"""
-        super(SpellCheckLineEdit, self).focusOutEvent(event)
+        super().focusOutEvent(event)
 
         if event.reason() in (
             Qt.BacktabFocusReason,
@@ -157,20 +157,12 @@ class SpellCheckLineEdit(SpellCheckTextEdit):
                 cursor.setPosition(end_position, mode)
                 self.setTextCursor(cursor)
             return
-        super(SpellCheckLineEdit, self).keyPressEvent(event)
+        super().keyPressEvent(event)
 
     def minimumSizeHint(self):
         """Match QLineEdit's size behavior"""
-        block_fmt = self.document().firstBlock().blockFormat()
-        width = super(SpellCheckLineEdit, self).minimumSizeHint().width()
-        height = int(
-            QtGui.QFontMetricsF(self.font()).lineSpacing()
-            + block_fmt.topMargin()
-            + block_fmt.bottomMargin()
-            + self.document().documentMargin()
-            + 2 * self.frameWidth()
-        )
-
+        width = super().minimumSizeHint().width()
+        height = self._get_preferred_height()
         style_opts = QtWidgets.QStyleOptionFrame()
         style_opts.initFrom(self)
         style_opts.lineWidth = self.frameWidth()
@@ -183,8 +175,27 @@ class SpellCheckLineEdit(SpellCheckTextEdit):
         """Use the minimum size as the sizeHint()"""
         return self.minimumSizeHint()
 
+    def setFont(self, font):
+        """Set the current font"""
+        self.setMinimumHeight(self._get_preferred_height(font=font))
+        super().setFont(font)
+
+    def _get_preferred_height(self, font=None):
+        """Calculate the preferred height for this widget"""
+        if font is None:
+            font = self.font()
+        block_fmt = self.document().firstBlock().blockFormat()
+        height = int(
+            QtGui.QFontMetricsF(font).lineSpacing()
+            + block_fmt.topMargin()
+            + block_fmt.bottomMargin()
+            + 2 * self.document().documentMargin()
+            + 2 * self.frameWidth()
+        )
+        return height
+
     def _trim_changed_text_lines(self):
-        """Trim the document to a single line to enforce a maximum of line line"""
+        """Trim the document to a single line to enforce a maximum of one line"""
         # self.setMaximumBlockCount(1) Undo/Redo.
         if self.document().blockCount() > 1:
             self.document().setPlainText(self.document().firstBlock().text())
@@ -223,7 +234,6 @@ class SpellAction(QtWidgets.QAction):
 
     def __init__(self, *args):
         QtWidgets.QAction.__init__(self, *args)
-        # pylint: disable=no-member
         self.triggered.connect(self.correct)
 
     def correct(self):

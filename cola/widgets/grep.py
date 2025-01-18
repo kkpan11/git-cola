@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from qtpy import QtCore
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
@@ -187,7 +185,6 @@ class Grep(Dialog):
         thread = self.worker_thread = GrepThread(context, self)
         thread.result.connect(self.process_result, type=Qt.QueuedConnection)
 
-        # pylint: disable=no-member
         self.input_txt.textChanged.connect(lambda s: self.search())
         self.regexp_combo.currentIndexChanged.connect(lambda x: self.search())
         self.result_txt.leave.connect(self.input_txt.setFocus)
@@ -302,13 +299,13 @@ class Grep(Dialog):
 
     def export_state(self):
         """Export persistent settings"""
-        state = super(Grep, self).export_state()
+        state = super().export_state()
         state['sizes'] = get(self.splitter)
         return state
 
     def apply_state(self, state):
         """Apply persistent settings"""
-        result = super(Grep, self).apply_state(state)
+        result = super().apply_state(state)
         try:
             self.splitter.setSizes(state['sizes'])
         except (AttributeError, KeyError, ValueError, TypeError):
@@ -316,7 +313,6 @@ class Grep(Dialog):
         return result
 
 
-# pylint: disable=too-many-ancestors
 class GrepTextView(VimHintedPlainTextEdit):
     """A text view with hotkeys for launching editors"""
 
@@ -344,12 +340,11 @@ class PreviewTask(qtutils.Task):
     def task(self):
         try:
             self.content = core.read(self.filename, errors='ignore')
-        except IOError:
+        except OSError:
             pass
         return (self.filename, self.content, self.line_number)
 
 
-# pylint: disable=too-many-ancestors
 class PreviewTextView(VimTextBrowser):
     """Preview window for file contents"""
 
@@ -360,7 +355,7 @@ class PreviewTextView(VimTextBrowser):
         self.runtask = qtutils.RunTask(parent=self)
 
     def preview(self, filename, line_number):
-        """Preview the a file at the specified line number"""
+        """Preview a file at the specified line number"""
 
         if filename != self.filename:
             request = PreviewTask(filename, line_number)
@@ -371,7 +366,7 @@ class PreviewTextView(VimTextBrowser):
     def clear(self):
         self.filename = ''
         self.content = ''
-        super(PreviewTextView, self).clear()
+        super().clear()
 
     def show_preview(self, task):
         """Show the results of the asynchronous file read"""

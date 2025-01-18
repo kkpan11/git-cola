@@ -35,11 +35,11 @@ span.title {
     font-size: 1.3em;
     font-weight: bold;
 }
-	</style>
+</style>
 </head>
 
 <body>
-<span class="title">Keyboard shortcuts</span>
+<span class="title">Tastenkürzel</span>
 <hr />
 
 <!-- Preparing Commits -->
@@ -47,12 +47,12 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">Commit</td>
+    <td class="title">Version</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Return</td>
     <td>:</td>
-    <td>Commit staged changes</td>
+    <td>Vorgemerkte Änderungen versionieren</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + Return</td>
@@ -62,32 +62,35 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + S</td>
     <td>:</td>
-    <td>Stage / unstage selected files</td>
+    <td>Ausgewählte Dateien vormerken</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + S</td>
     <td>:</td>
+    <!-- TODO -->
     <td>Stage / unstage all files</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + A</td>
     <td>:</td>
-    <td>Stage modified files</td>
+    <td>Geänderte Dateien vormerken</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + U</td>
     <td>:</td>
-    <td>Stage untracked files</td>
+    <td>Alle neuen Dateien vormerken</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + U</td>
+    <td class="shortcut">Ctrl + U / Alt + Shift + R</td>
     <td>:</td>
+    <!-- TODO -->
     <td>Revert the selected lines, or the diff hunk beneath the text cursor when nothing
         is selected, from the worktree</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + U</td>
     <td>:</td>
+    <!-- TODO -->
     <td>Launch an external editor to edit the selected lines, or the diff hunk beneath
         the text cursor when nothing is selected, and then revert unstaged changes
         using the edited diff</td>
@@ -95,22 +98,23 @@ span.title {
 <tr>
     <td class="shortcut">Ctrl + Z</td>
     <td>:</td>
-    <td>Revert uncommitted changes</td>
+    <td>Nicht versionierte Änderungen verwerfen</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + M</td>
     <td>:</td>
+    <!-- TODO -->
     <td>Merge branches</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + m</td>
+    <td class="shortcut">Alt + M</td>
     <td>:</td>
-    <td>Amend last commit</td>
+    <td>Letzte Version nachbessern</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + C</td>
     <td>:</td>
-    <td>Cherry pick</td>
+    <td>Einzelne Version übernehmen</td>
 </tr>
 </table>
 
@@ -119,17 +123,17 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">Actions</td>
+    <td class="title">Befehle</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + B</td>
     <td>:</td>
-    <td>Create branch</td>
+    <td>Neuen Zweig erstellen</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + B</td>
     <td>:</td>
-    <td>Checkout branch</td>
+    <td>Zweig wechseln</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + T</td>
@@ -139,22 +143,22 @@ span.title {
 <tr>
     <td class="shortcut">Alt + G</td>
     <td>:</td>
-    <td>Grep</td>
+    <td>Suchen</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + D</td>
     <td>:</td>
-    <td>Show diffstat</td>
+    <td>Vergleichsstatistik anzeigen</td>
 </tr>
 <tr>
-    <td class="shortcut">Alt + E</td>
+    <td class="shortcut">Alt + Shift + E</td>
     <td>:</td>
-    <td>Export patches</td>
+    <td>Patches exportieren</td>
 </tr>
 <tr>
     <td class="shortcut">Alt + Shift + S</td>
     <td>:</td>
-    <td>Stash</td>
+    <td>Weglegen und zurückholen</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Enter</td>
@@ -177,24 +181,19 @@ span.title {
     <td>Delete untracked files</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + Shift + F</td>
+    <td class="shortcut">Alt + Shift + F</td>
     <td>:</td>
     <td>Toggle paths filter</td>
 </tr>
 <tr>
-    <td class="shortcut">Alt + R</td>
-    <td>:</td>
-    <td>Start/continue interactive rebase</td>
-</tr>
-<tr>
     <td class="shortcut">Ctrl + R</td>
     <td>:</td>
-    <td>Refresh</td>
+    <td>Ansicht aktualisieren</td>
 </tr>
 <tr>
     <td class="shortcut">?</td>
     <td>:</td>
-    <td>Keyboard shortcuts</td>
+    <td>Tastenkürzel</td>
 </tr>
 </table>
 
@@ -203,62 +202,47 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">Editing</td>
+    <td class="title">Bearbeiten</td>
 </tr>
 <tr>
     <td class="shortcut">Enter / Ctrl + E</td>
     <td>:</td>
-    <td>Launch editor</td>
+    <td>Im Editor bearbeiten</td>
 </tr>
 <tr>
     <td class="shortcut">Space</td>
     <td>:</td>
-    <td>Open using default application</td>
+    <td>Mit der Standardanwendung öffnen</td>
 </tr>
 <tr>
     <td class="shortcut">Shift + Space</td>
     <td>:</td>
-    <td>Open parent directory</td>
+    <td>Übergeordnetes Verzeichnis öffnen</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Alt + C</td>
     <td>:</td>
-    <td>Copy Commit ID</td>
+    <td>Version kopieren</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + E</td>
     <td>:</td>
-    <td>View / edit recently modified files</td>
+    <td>Kürzlich geänderte Dateien anzeigen/bearbeiten</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + #</td>
     <td>:</td>
-    <td>Focus tools</td>
+    <td>Werkzeuge fokussieren</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + #</td>
     <td>:</td>
-    <td>Show and hide tools<br>
-        # is 1 for commit, 2 for status, 3 for diff, etc.</td>
-</tr>
-</table>
-
-<!-- Remotes -->
-<table class="center">
-<tr>
-    <td width="35%">&nbsp;</td>
-    <td>&nbsp;</td>
-    <td class="title">Remotes</td>
+    <td>Werkzeuge anzeigen und verstecken</td>
 </tr>
 <tr>
-    <td class="shortcut">Ctrl + P</td>
+    <td class="shortcut">Ctrl + Space</td>
     <td>:</td>
-    <td>Launch the Push dialog</td>
-</tr>
-<tr>
-    <td class="shortcut">Ctrl + Shift + P</td>
-    <td>:</td>
-    <td>Launch the Pull dialog</td>
+    <td>Display autocomplete options</td>
 </tr>
 </table>
 
@@ -267,24 +251,25 @@ span.title {
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">Diff</td>
+    <td class="title">Vergleichsansicht</td>
 </tr>
 <tr>
     <td class="shortcut">S</td>
     <td>:</td>
-    <td>Stage or unstage the selected lines, or the diff hunk beneath the text cursor
-        when nothing is selected</td>
+    <td>Auswahl vormerken; falls nichts ausgewählt ist,
+        siehe <strong><em>H</em></strong>
+    </td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + S</td>
     <td>:</td>
     <td>Launch an external editor to edit the selected lines, or the diff hunk beneath the
-        text cursor when nothing is selected, and then stage or unstage the edited diff</td>
+        text cursor when nothing is selected, and then stage the edited diff</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + D</td>
     <td>:</td>
-    <td>View diff using `git difftool`</td>
+    <td>Mithilfe von `git difftool` ansehen</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + F</td>
@@ -314,8 +299,7 @@ span.title {
 <tr>
     <td class="shortcut">Shift</td>
     <td>:</td>
-    <td>Hold Shift to select text when moving the cursor with H, J, K, L
-        and Arrow keys</td>
+    <td>Hold shift to select text when moving around with H, J, K, L and Arrow keys</td>
 </tr>
 <tr>
     <td class="shortcut">Space / Shift + Space</td>
@@ -344,22 +328,23 @@ span.title {
 </tr>
 </table>
 
+
 <!-- Browser actions -->
 <table class="center">
 <tr>
     <td width="35%">&nbsp;</td>
     <td>&nbsp;</td>
-    <td class="title">Browser actions</td>
+    <td class="title">Browser-Befehle</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + H</td>
     <td>:</td>
-    <td>View history</td>
+    <td>Verlauf anzeigen</td>
 </tr>
 <tr>
     <td class="shortcut">Ctrl + Shift + D</td>
     <td>:</td>
-    <td>View diff against predecessor</td>
+    <td>Mit Vorgänger vergleichen</td>
 </tr>
 </table>
 
@@ -373,23 +358,24 @@ span.title {
 <tr>
     <td class="shortcut">H</td>
     <td>:</td>
-    <td>Move left/collapse</td>
+    <td>Nach links/einklappen</td>
 </tr>
 <tr>
     <td class="shortcut">J / Alt + J</td>
     <td>:</td>
-    <td>Move down</td>
+    <td>Nach unten</td>
 </tr>
 <tr>
     <td class="shortcut">K / Alt + K</td>
     <td>:</td>
-    <td>Move up</td>
+    <td>Nach oben</td>
 </tr>
 <tr>
     <td class="shortcut">L</td>
     <td>:</td>
-    <td>Move right/expand</td>
+    <td>Nach rechts/ausklappen</td>
 </tr>
+<!-- TODO -->
 <tr>
     <td class="shortcut">Ctrl + J</td>
     <td>:</td>

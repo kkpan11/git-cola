@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from qtpy import QtCore
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
@@ -98,7 +96,6 @@ class RecentFiles(standard.Dialog):
         )
         self.setLayout(self.main_layout)
 
-        # pylint: disable=no-member
         self.tree.selection_changed.connect(self.tree_selection_changed)
         self.tree.path_chosen.connect(self.edit_file)
         self.count.valueChanged.connect(self.count_changed)

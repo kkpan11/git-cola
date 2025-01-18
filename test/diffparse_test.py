@@ -1,7 +1,4 @@
 """Tests for the diffparse module"""
-# pylint: disable=redefined-outer-name
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import pytest
 
 from cola import core
@@ -10,7 +7,7 @@ from cola import diffparse
 from . import helper
 
 
-class DiffLinesTestData(object):
+class DiffLinesTestData:
     """Test data used by DiffLines tests"""
 
     def __init__(self):

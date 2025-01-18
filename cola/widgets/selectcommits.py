@@ -1,5 +1,4 @@
 """A GUI for selecting commits"""
-from __future__ import division, absolute_import, unicode_literals
 
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
@@ -34,7 +33,7 @@ def select_commits_and_output(context, title, revs, summaries, multiselect=True)
     return dialog.select_commits_and_output()
 
 
-class Model(object):
+class Model:
     def __init__(self, revs, summaries):
         self.revisions = revs
         self.summaries = summaries
@@ -67,8 +66,6 @@ class SelectCommits(Dialog):
         self.search_label.setText(N_('Search:'))
         self.search = QtWidgets.QLineEdit()
         self.search.setReadOnly(False)
-
-        # pylint: disable=no-member
         self.search.textChanged.connect(self.search_list)
 
         self.select_button = qtutils.ok_button(N_('Select'), enabled=False)
@@ -93,7 +90,6 @@ class SelectCommits(Dialog):
         )
         self.setLayout(self.main_layout)
 
-        # pylint: disable=no-member
         commits.itemSelectionChanged.connect(self.commit_oid_selected)
         commits.itemDoubleClicked.connect(self.commit_oid_double_clicked)
 

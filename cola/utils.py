@@ -1,8 +1,6 @@
 """Miscellaneous utility functions"""
-from __future__ import absolute_import, division, print_function, unicode_literals
 import copy
 import os
-import random
 import re
 import shlex
 import sys
@@ -12,8 +10,6 @@ import traceback
 
 from . import core
 from . import compat
-
-random.seed(hash(time.time()))
 
 
 def asint(obj, default=0):
@@ -239,13 +235,6 @@ def strip_prefix(prefix, string):
     return string[len(prefix) :]
 
 
-def sanitize(value):
-    """Removes shell metacharacters from a string."""
-    for char in """ \t!@#$%^&*()\\;,<>"'[]{}~|""":
-        value = value.replace(char, '_')
-    return value
-
-
 def tablength(word, tabwidth):
     """Return length of a word taking tabs into account
 
@@ -262,17 +251,17 @@ def _shell_split_py2(value):
         result = shlex.split(core.encode(value))
     except ValueError:
         result = core.encode(value).strip().split()
-    # Decode to unicode strings
+    # Decode to Unicode strings
     return [core.decode(arg) for arg in result]
 
 
 def _shell_split_py3(value):
-    """Python3 requires unicode inputs to shlex.split().  Converts to unicode"""
+    """Python3 requires Unicode inputs to shlex.split().  Convert to Unicode"""
     try:
         result = shlex.split(value)
     except ValueError:
         result = core.decode(value).strip().split()
-    # Already unicode
+    # Already Unicode
     return result
 
 
@@ -295,17 +284,17 @@ def tmp_filename(label, suffix=''):
 
 
 def is_linux():
-    """Is this a linux machine?"""
+    """Is this a Linux machine?"""
     return sys.platform.startswith('linux')
 
 
 def is_debian():
-    """Is it debian?"""
+    """Is this a Debian/Linux machine?"""
     return os.path.exists('/usr/bin/apt-get')
 
 
 def is_darwin():
-    """Return True on OSX."""
+    """Is this a macOS machine?"""
     return sys.platform == 'darwin'
 
 
@@ -319,7 +308,7 @@ def launch_default_app(paths):
     if is_win32():
         for path in paths:
             if hasattr(os, 'startfile'):
-                os.startfile(path)  # pylint: disable=no-member
+                os.startfile(os.path.abspath(path))
         return
 
     if is_darwin():
@@ -338,7 +327,7 @@ def expandpath(path):
     return path
 
 
-class Group(object):
+class Group:
     """Operate on a collection of objects as a single unit"""
 
     def __init__(self, *members):
@@ -356,7 +345,7 @@ class Group(object):
         return relay
 
 
-class Proxy(object):
+class Proxy:
     """Wrap an object and override attributes"""
 
     def __init__(self, obj, **overrides):
@@ -419,7 +408,7 @@ def slice_func(input_items, map_func):
     return (status, '\n'.join(outs), '\n'.join(errs))
 
 
-class Sequence(object):
+class Sequence:
     def __init__(self, sequence):
         self.sequence = sequence
 
